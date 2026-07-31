@@ -1,0 +1,23 @@
+{{- $m := index .machines .machine -}}
+{{- $hasCatchAll := false -}}
+{{- range $m.monitors }}{{ if eq .output "" }}{{ $hasCatchAll = true }}{{ end }}{{ end -}}
+{{- if not $hasCatchAll -}}
+-- Fallback for any output this machine does not name: an unplugged cable, a
+-- renamed connector or a different machine entirely leaves the display
+-- configured instead of unconfigured. It goes first so the explicit rules
+-- below take precedence over it.
+hl.monitor({
+    output   = "",
+    mode     = "preferred",
+    position = "auto",
+    scale    = "auto",
+})
+
+{{ end -}}
+{{- range $m.monitors }}hl.monitor({
+    output   = {{ .output | quote }},
+    mode     = {{ .mode | quote }},
+    position = {{ .position | quote }},
+    scale    = {{ .scale | quote }},
+})
+{{ end -}}

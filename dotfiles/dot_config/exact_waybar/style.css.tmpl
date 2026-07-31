@@ -1,0 +1,63 @@
+* {
+    font-family: "{{ .theme.fonts.ui }}", sans-serif;
+    font-size: {{ .theme.sizes.bar }}px;
+    border: none;
+    border-radius: 0;
+}
+
+window#waybar {
+    background: alpha(#{{ .theme.colors.bg }}, 0.9);
+    color: #{{ .theme.colors.fg }};
+}
+
+#workspaces button {
+    padding: 0 8px;
+    color: #{{ .theme.colors.muted }};
+}
+
+#workspaces button.active {
+    color: #{{ .theme.colors.accent }};
+}
+
+#workspaces button.urgent {
+    color: #{{ .theme.colors.danger }};
+}
+
+#clock,
+#state,
+#audio,
+#power,
+#connectivity,
+#tray {
+    padding: 0 10px;
+}
+
+#audio #pulseaudio,
+#state #custom-hypridle,
+#state #custom-dnd,
+#power #backlight,
+#power #battery,
+#power #custom-power-profile,
+#connectivity #bluetooth {
+    padding: 0 4px;
+}
+
+#connectivity #network {
+    padding: 0 10px 0 4px;
+}
+
+#connectivity #bluetooth {
+    font-size: 19px;
+}
+
+#audio #pulseaudio.source-muted {
+    font-size: 18px;
+}
+
+#battery.warning {
+    color: #{{ .theme.colors.warning }};
+}
+
+#battery.critical {
+    color: #{{ .theme.colors.danger }};
+}

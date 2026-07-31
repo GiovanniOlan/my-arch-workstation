@@ -1,0 +1,81 @@
+# Everything the desktop needs installed, declared once. The provisioning
+# scripts read these lists; no package name is written inside a script.
+#
+# `common` applies to every machine. `laptop` is added on top for that profile
+# only. Lists are grouped by purpose and kept sorted within each group so a
+# missing entry is easy to spot.
+
+[packages.pacman]
+common = [
+  # Session plumbing
+  "xdg-user-dirs",
+  "xdg-desktop-portal",
+  "xdg-desktop-portal-hyprland",
+  "polkit",
+  "polkit-gnome",
+  "udisks2",
+  "networkmanager",
+  # Build toolchain, needed to bootstrap the AUR helper
+  "base-devel",
+  "git",
+  # Audio
+  "pipewire",
+  "pipewire-alsa",
+  "pipewire-jack",
+  "pipewire-pulse",
+  "wireplumber",
+  "pavucontrol",
+  # Compositor and session
+  "hyprland",
+  "hypridle",
+  "hyprlock",
+  # Applications
+  "kitty",
+  "nautilus",
+  "calcurse",
+  "fuzzel",
+  "playerctl",
+  # Status bar and its modules
+  "waybar",
+  "python-gobject",
+  "power-profiles-daemon",
+  "blueman",
+  # Notifications
+  "mako",
+  "libnotify",
+  # Clipboard
+  "wl-clipboard",
+  "cliphist",
+  # Screenshots
+  "grim",
+  "slurp",
+  "jq",
+  # Fonts
+  "noto-fonts",
+  "noto-fonts-cjk",
+  "noto-fonts-emoji",
+  "ttf-caladea",
+  "ttf-carlito",
+  "ttf-jetbrains-mono-nerd",
+  "ttf-liberation",
+]
+
+# Backlight control has nothing to drive on a desktop. sof-firmware is what
+# makes internal speakers and microphone appear on Intel laptops from roughly
+# 2020 onwards; without it the hardware exists but ALSA never registers it.
+laptop = [
+  "brightnessctl",
+  "sof-firmware",
+]
+
+[packages.aur]
+common = [
+  "grimblast-git",  # screenshot wrapper used by the PRINT keybinds
+]
+
+# wl-kbptr (keyboard-driven pointer control) is deliberately absent: it builds
+# against opencv4, and Arch has moved to opencv 5, which only ships opencv5.pc.
+# The build fails on any current Arch, and an already-installed copy stops
+# working after the upgrade. Its config and keybinds are still deployed, so
+# putting it back here is all that is needed once it builds again. See
+# pendiente.md.

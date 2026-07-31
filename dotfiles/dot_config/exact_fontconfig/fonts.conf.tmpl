@@ -1,0 +1,105 @@
+<?xml version="1.0"?>
+<!DOCTYPE fontconfig SYSTEM "fonts.dtd">
+<fontconfig>
+
+  <!-- ── Generic families ──────────────────────────────────────────────────── -->
+  <alias>
+    <family>sans-serif</family>
+    <prefer><family>{{ .theme.fonts.sans }}</family></prefer>
+  </alias>
+  <alias>
+    <family>serif</family>
+    <prefer><family>{{ .theme.fonts.serif }}</family></prefer>
+  </alias>
+  <alias>
+    <family>monospace</family>
+    <prefer><family>{{ .theme.fonts.mono }}</family></prefer>
+  </alias>
+
+  <!-- ── Specific font substitutions ───────────────────────────────────────── -->
+
+  <!-- Arial / Helvetica → Liberation Sans (metric-compatible) -->
+  <alias>
+    <family>Arial</family>
+    <prefer><family>Liberation Sans</family></prefer>
+  </alias>
+  <alias>
+    <family>Helvetica</family>
+    <prefer><family>Liberation Sans</family></prefer>
+  </alias>
+  <alias>
+    <family>Helvetica Neue</family>
+    <prefer><family>Liberation Sans</family></prefer>
+  </alias>
+
+  <!-- Times New Roman → Liberation Serif (metric-compatible) -->
+  <alias>
+    <family>Times New Roman</family>
+    <prefer><family>Liberation Serif</family></prefer>
+  </alias>
+  <alias>
+    <family>Times</family>
+    <prefer><family>Liberation Serif</family></prefer>
+  </alias>
+
+  <!-- Courier New → Liberation Mono (metric-compatible) -->
+  <alias>
+    <family>Courier New</family>
+    <prefer><family>Liberation Mono</family></prefer>
+  </alias>
+  <alias>
+    <family>Courier</family>
+    <prefer><family>Liberation Mono</family></prefer>
+  </alias>
+
+  <!-- Georgia → themed serif -->
+  <alias>
+    <family>Georgia</family>
+    <prefer><family>{{ .theme.fonts.serif }}</family></prefer>
+  </alias>
+
+  <!-- Verdana / Tahoma / Trebuchet MS → themed sans -->
+  <alias>
+    <family>Verdana</family>
+    <prefer><family>{{ .theme.fonts.sans }}</family></prefer>
+  </alias>
+  <alias>
+    <family>Tahoma</family>
+    <prefer><family>{{ .theme.fonts.sans }}</family></prefer>
+  </alias>
+  <alias>
+    <family>Trebuchet MS</family>
+    <prefer><family>{{ .theme.fonts.sans }}</family></prefer>
+  </alias>
+
+  <!-- Segoe UI (Windows UI font) → themed sans -->
+  <alias>
+    <family>Segoe UI</family>
+    <prefer><family>{{ .theme.fonts.sans }}</family></prefer>
+  </alias>
+
+  <!-- Calibri → Carlito (metric-compatible) -->
+  <alias>
+    <family>Calibri</family>
+    <prefer><family>Carlito</family></prefer>
+  </alias>
+
+  <!-- Cambria → Caladea (metric-compatible) -->
+  <alias>
+    <family>Cambria</family>
+    <prefer><family>Caladea</family></prefer>
+  </alias>
+
+  <!-- ── Universal fallbacks ────────────────────────────────────────────────── -->
+  <match target="pattern">
+    <edit name="family" mode="append_last">
+      <string>{{ .theme.fonts.sans }}</string>
+    </edit>
+  </match>
+  <match target="pattern">
+    <edit name="family" mode="append_last">
+      <string>Noto Color Emoji</string>
+    </edit>
+  </match>
+
+</fontconfig>

@@ -1,0 +1,11 @@
+#
+# ~/.bash_profile
+#
+
+[[ -f ~/.bashrc ]] && . ~/.bashrc
+
+# Start the compositor on the first virtual console only. Autologin runs there,
+# so this is what turns a login into a desktop session. Other TTYs stay text.
+if [ -z "$DISPLAY" ] && [ "$XDG_VTNR" = "1" ]; then
+    exec start-hyprland
+fi

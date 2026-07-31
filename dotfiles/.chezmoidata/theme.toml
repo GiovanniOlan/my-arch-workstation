@@ -1,0 +1,34 @@
+# Single source of truth for the desktop's look.
+#
+# Colors are bare six-digit hex: no leading '#', no alpha channel. Every tool
+# below expects a different notation, so each template adds what it needs by
+# concatenation instead of storing the same color several ways:
+#
+#   waybar (CSS)     #{{ .theme.colors.accent }}
+#   fuzzel           {{ .theme.colors.accent }}ff
+#   hyprland (Lua)   rgba({{ .theme.colors.accent }}ee)
+#   wl-kbptr         #{{ .theme.colors.accent }}ff
+#
+# Pure black and pure white with transparency stay literal in the configs that
+# use them: they are not palette decisions.
+
+[theme.colors]
+bg         = "1a1a1a"  # bar and launcher background, window shadow
+fg         = "ffffff"  # primary text and labels
+muted      = "888888"  # inactive workspace buttons
+accent     = "33ccff"  # active workspace, selection, focused border, borders
+accent_alt = "00ff99"  # second stop of the focused-border gradient
+inactive   = "595959"  # unfocused window border
+warning    = "ffcc00"  # low battery, keyboard-pointer selection
+danger     = "ff5555"  # urgent workspace, critical battery
+
+[theme.fonts]
+ui    = "JetBrainsMono Nerd Font"       # bar and launcher
+mono  = "JetBrainsMono Nerd Font Mono"  # terminals, lock screen, monospace alias
+sans  = "Noto Sans"                     # sans-serif alias and universal fallback
+serif = "Noto Serif"                    # serif alias
+
+[theme.sizes]
+launcher = 14  # fuzzel font size, in points
+bar      = 16  # waybar base font size, in pixels
+lock     = 30  # hyprlock lock glyph, in points

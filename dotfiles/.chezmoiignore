@@ -1,0 +1,9 @@
+# Entries live in the source directory but must never be applied to $HOME.
+#
+# Patterns match target paths, not source names: chezmoi resolves each source
+# entry to where it would land and checks the result against this list.
+# Files whose names chezmoi reserves (.chezmoidata, .chezmoi.toml.tmpl,
+# .chezmoiroot, run_ scripts) are never applied, so they need no entry here.
+
+# The only script that runs outside chezmoi: it installs chezmoi itself.
+bootstrap.sh

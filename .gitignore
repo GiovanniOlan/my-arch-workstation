@@ -8,3 +8,4 @@ arch-install/dev/.state/
 /.claude/skills
 .claude/
 ai/
+tmp/

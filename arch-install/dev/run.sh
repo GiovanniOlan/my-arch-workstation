@@ -31,7 +31,8 @@ REPO_MOUNT_POINT="/repo"
 # serial, so text can be pasted and copied from the host terminal. With --boot
 # the already installed system comes up instead, keeping disk and UEFI
 # variables, on a graphical window: neither GRUB nor the target system speaks
-# over the serial port.
+# over the serial port. That window is also where Part 2 gets exercised, so the
+# boot mode carries a GPU and the repository share as well.
 
 BOOT_INSTALLED=false
 case "${1:-}" in
@@ -65,6 +66,18 @@ ok "Required tools present."
 # It needs neither the ISO nor any download: just the disk and UEFI variables
 # the installation left behind. It exits here so that the rest of the script
 # stays a linear path dedicated to installing.
+#
+# Two things this mode carries that the install mode does not need:
+#
+#   - virtio-vga-gl. The installer only ever writes to a serial console, but the
+#     installed system is where the Wayland compositor runs, and a compositor
+#     needs a DRM device with working OpenGL, which the default emulated VGA
+#     does not provide. The -vga- variant rather than plain virtio-gpu-gl
+#     because it also keeps VGA compatibility: without it the text console
+#     still shows up, but what the compositor renders never reaches the window.
+#   - The repository share. Part 2 is applied from inside the installed system,
+#     so it needs the same read-only view of the working tree that the
+#     installer gets, for the same reason: no copying, no commit, no network.
 
 if $BOOT_INSTALLED; then
     [[ -f "$STATE_DISK" ]] \
@@ -74,6 +87,10 @@ if $BOOT_INSTALLED; then
 
     info "Booting the installed system from $STATE_DISK..."
     warn "Graphical window: GRUB and the installed system do not use the serial console."
+    info "To reach the repository from inside the VM, run there:"
+    echo
+    echo "    sudo mkdir -p $REPO_MOUNT_POINT && sudo mount -t 9p -o trans=virtio,version=9p2000.L,ro $REPO_MOUNT_TAG $REPO_MOUNT_POINT"
+    echo
 
     exec qemu-system-x86_64 \
         -enable-kvm \
@@ -84,7 +101,10 @@ if $BOOT_INSTALLED; then
         -drive if=pflash,format=raw,file="$OVMF_VARS_RUN" \
         -drive file="$STATE_DISK",if=virtio,format=qcow2 \
         -boot order=c \
-        -netdev user,id=net0 -device virtio-net-pci,netdev=net0
+        -device virtio-vga-gl \
+        -display gtk,gl=on \
+        -netdev user,id=net0 -device virtio-net-pci,netdev=net0 \
+        -virtfs "local,path=$REPO_ROOT,mount_tag=$REPO_MOUNT_TAG,security_model=mapped-xattr,readonly=on"
 fi
 
 ##############################################

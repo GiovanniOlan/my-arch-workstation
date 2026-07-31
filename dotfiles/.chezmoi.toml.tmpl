@@ -1,0 +1,24 @@
+{{/*
+Generates ~/.config/chezmoi/chezmoi.toml on `chezmoi init`.
+
+The machine profile is the only thing a human is ever asked. promptChoiceOnce
+stores the answer in the generated config, so later runs of `chezmoi init` and
+every `chezmoi apply` reuse it without asking again.
+
+The profile is deliberately not derived from the hostname: the hostname is
+chosen by the user during the Part 1 installer, so it says nothing reliable
+about what kind of machine this is.
+
+sourceDir is recorded because this project does not live where chezmoi would
+put it by default: the source is the dotfiles/ directory of a clone of the whole
+repository. Without it here, `chezmoi init --source` would work once and every
+later `apply`, `edit` or `update` would look in ~/.local/share/chezmoi and find
+nothing.
+*/ -}}
+{{- $machine := promptChoiceOnce . "machine" "Machine profile" (list "desktop" "laptop") -}}
+
+sourceDir = {{ .chezmoi.sourceDir | quote }}
+
+[data]
+    machine = {{ $machine | quote }}
+    laptop = {{ eq $machine "laptop" }}

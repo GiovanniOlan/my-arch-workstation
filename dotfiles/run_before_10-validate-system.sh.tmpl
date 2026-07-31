@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+#
+# Guard: refuse to touch the machine unless it is one this setup supports.
+# Runs on every apply, before any file is written or any package installed.
+set -euo pipefail
+
+{{ template "lib-log.bash" . }}
+
+info "Validating the host system..."
+
+[[ $EUID -eq 0 ]] && die "Run as your own user, not as root."
+
+command -v pacman >/dev/null 2>&1 || die "This setup targets Arch Linux: pacman was not found."
+
+command -v sudo >/dev/null 2>&1 || die "sudo is required to install packages and enable services."
+
+ping -c1 -W3 archlinux.org >/dev/null 2>&1 || die "No internet connection."
+
+# Ask for the password now, so it is requested once at a predictable moment
+# instead of in the middle of a package install. Each privileged script refreshes
+# this timestamp again: chezmoi runs every script as its own process, so a
+# background keep-alive here would not survive to reach them.
+sudo -v || die "Could not elevate privileges."
+
+ok "Host system validated ({{ .machine }})."

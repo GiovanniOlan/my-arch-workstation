@@ -1,0 +1,23 @@
+{{- $m := index .machines .machine -}}
+general {
+    lock_cmd = pidof hyprlock || hyprlock
+    before_sleep_cmd = pidof hyprlock || hyprlock
+}
+{{ if gt $m.idle_dim_secs 0 }}
+# Dim the backlight as a warning shot; any activity restores the saved level.
+listener {
+    timeout = {{ $m.idle_dim_secs }}
+    on-timeout = brightnessctl -s set 10%
+    on-resume = brightnessctl -r
+}
+{{ end }}
+listener {
+    timeout = {{ $m.idle_lock_secs }}
+    on-timeout = pidof hyprlock || hyprlock
+}
+{{ if gt $m.idle_suspend_secs 0 }}
+listener {
+    timeout = {{ $m.idle_suspend_secs }}
+    on-timeout = systemctl suspend
+}
+{{ end -}}

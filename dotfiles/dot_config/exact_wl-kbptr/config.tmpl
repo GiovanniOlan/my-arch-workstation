@@ -1,0 +1,29 @@
+# Theme derived from the shared palette. wl-kbptr wants #RRGGBBAA.
+# Pure black and fully transparent stay literal: they are overlay mechanics,
+# not palette decisions.
+
+[general]
+modes=floating,click
+
+[mode_floating]
+source=detect
+label_color=#{{ .theme.colors.fg }}ff
+label_select_color=#{{ .theme.colors.warning }}ff
+unselectable_bg_color=#000000ff
+selectable_bg_color=#000000ff
+selectable_border_color=#000000ff
+label_font_family=sans-serif
+label_font_size=20 50% 40
+label_symbols=asdfjklghwerioutp
+
+[mode_split]
+pointer_size=20
+pointer_color=#{{ .theme.colors.warning }}ff
+bg_color=#00000000
+area_bg_color=#00000000
+vertical_color=#{{ .theme.colors.fg }}cc
+horizontal_color=#{{ .theme.colors.fg }}cc
+history_border_color=#{{ .theme.colors.fg }}cc
+
+[mode_click]
+button=left

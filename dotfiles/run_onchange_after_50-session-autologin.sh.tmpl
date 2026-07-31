@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+#
+# Logs the user in automatically on tty1, where ~/.bash_profile then starts the
+# compositor. This assumes full-disk encryption: the boot passphrase is what
+# authenticates the user, so the desktop session follows without a second
+# prompt.
+set -euo pipefail
+
+{{ template "lib-log.bash" . }}
+
+dropin_dir="/etc/systemd/system/getty@tty1.service.d"
+
+info "Configuring automatic login on tty1..."
+
+sudo -v
+sudo mkdir -p "$dropin_dir"
+sudo tee "$dropin_dir/autologin.conf" >/dev/null <<'EOF'
+[Service]
+ExecStart=
+ExecStart=-/sbin/agetty --autologin {{ .chezmoi.username }} --noclear %I $TERM
+EOF
+
+sudo systemctl daemon-reload
+
+ok "Automatic login configured for {{ .chezmoi.username }}."

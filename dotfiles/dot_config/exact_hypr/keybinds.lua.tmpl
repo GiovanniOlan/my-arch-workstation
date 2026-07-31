@@ -1,0 +1,107 @@
+local p       = require("programs")
+local mainMod = "SUPER"
+
+-- ── Apps ─────────────────────────────────────────────────────────────────────
+hl.bind(mainMod .. " + RETURN", hl.dsp.exec_cmd(p.terminal))
+hl.bind(mainMod .. " + E",      hl.dsp.exec_cmd(p.fileManager))
+hl.bind(mainMod .. " + P",      hl.dsp.exec_cmd(p.menu))
+hl.bind(mainMod .. " + ESCAPE", hl.dsp.exec_cmd("action-menu"))
+
+hl.bind(mainMod .. " + L", hl.dsp.exec_cmd("pidof hyprlock || hyprlock"))
+hl.bind(mainMod .. " + I", hl.dsp.exec_cmd("hypridle-toggle"))
+
+-- ── Window ────────────────────────────────────────────────────────────────────
+hl.bind(mainMod .. " + Q", hl.dsp.window.close())
+hl.bind(mainMod .. " + W", hl.dsp.window.float({ action = "toggle" }))
+hl.bind(mainMod .. " + F",         hl.dsp.window.fullscreen({ mode = 1 }))
+hl.bind(mainMod .. " + SHIFT + F", hl.dsp.window.fullscreen({ mode = 0 }))
+hl.bind(mainMod .. " + T", hl.dsp.layout("togglesplit"))
+hl.bind(mainMod .. " + M", hl.dsp.exec_cmd(
+    "command -v hyprshutdown >/dev/null 2>&1 && hyprshutdown || hyprctl dispatch 'hl.dsp.exit()'"
+))
+
+-- ── Focus (cycle) ────────────────────────────────────────────────────────────
+hl.bind("ALT + Tab",         hl.dsp.window.cycle_next())
+hl.bind("ALT + SHIFT + Tab", hl.dsp.window.cycle_next({ next=false }))
+
+
+-- ── Focus (vim keys) ──────────────────────────────────────────────────────────
+hl.bind(mainMod .. " + h", hl.dsp.focus({ direction = "left"  }))
+hl.bind(mainMod .. " + l", hl.dsp.focus({ direction = "right" }))
+hl.bind(mainMod .. " + k", hl.dsp.focus({ direction = "up"    }))
+hl.bind(mainMod .. " + j", hl.dsp.focus({ direction = "down"  }))
+
+-- ── Swap (vim keys) ──────────────────────────────────────────────────────────
+hl.bind(mainMod .. " + SHIFT + h", hl.dsp.window.swap({ direction = "left"  }))
+hl.bind(mainMod .. " + SHIFT + l", hl.dsp.window.swap({ direction = "right" }))
+hl.bind(mainMod .. " + SHIFT + k", hl.dsp.window.swap({ direction = "up"    }))
+hl.bind(mainMod .. " + SHIFT + j", hl.dsp.window.swap({ direction = "down"  }))
+
+-- ── Resize (vim keys) ────────────────────────────────────────────────────────
+hl.bind(mainMod .. " + CTRL + h", hl.dsp.window.resize({ x = -20, y = 0,   relative = true }), { repeating = true })
+hl.bind(mainMod .. " + CTRL + l", hl.dsp.window.resize({ x = 20,  y = 0,   relative = true }), { repeating = true })
+hl.bind(mainMod .. " + CTRL + k", hl.dsp.window.resize({ x = 0,   y = -20, relative = true }), { repeating = true })
+hl.bind(mainMod .. " + CTRL + j", hl.dsp.window.resize({ x = 0,   y = 20,  relative = true }), { repeating = true })
+
+-- ── Monitors ─────────────────────────────────────────────────────────────────
+hl.bind(mainMod .. " + TAB", hl.dsp.focus({ monitor = "+1" }))
+
+-- ── Workspaces ────────────────────────────────────────────────────────────────
+for i = 1, 10 do
+    local key = (i == 10) and 0 or i
+
+    hl.bind(mainMod .. " + " .. key,
+        hl.dsp.focus({ workspace = i, on_current_monitor = true }))
+
+    hl.bind(mainMod .. " + SHIFT + " .. key,
+        hl.dsp.exec_cmd(
+            "hyprctl dispatch 'hl.dsp.window.move({workspace=" .. i .. ", follow=false})'" ..
+            " && hyprctl dispatch 'hl.dsp.focus({workspace=" .. i .. ", on_current_monitor=true})'"
+        ))
+end
+
+hl.bind(mainMod .. " + mouse_down", hl.dsp.focus({ workspace = "e+1", on_current_monitor = true }))
+hl.bind(mainMod .. " + mouse_up",   hl.dsp.focus({ workspace = "e-1", on_current_monitor = true }))
+hl.bind(mainMod .. " + mouse:272",  hl.dsp.window.drag(),   { mouse = true })
+hl.bind(mainMod .. " + mouse:273",  hl.dsp.window.resize(), { mouse = true })
+
+-- ── Media ────────────────────────────────────────────────────────────────────
+-- Volume and brightness (SUPER+F1–F6, works on any keyboard)
+hl.bind(mainMod .. " + F1", hl.dsp.exec_cmd("wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle"), { locked = true })
+hl.bind(mainMod .. " + F2", hl.dsp.exec_cmd("wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle"),      { locked = true })
+hl.bind(mainMod .. " + F3", hl.dsp.exec_cmd("wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-"),       { locked = true, repeating = true })
+hl.bind(mainMod .. " + F4", hl.dsp.exec_cmd("wpctl set-volume -l 1 @DEFAULT_AUDIO_SINK@ 5%+"), { locked = true, repeating = true })
+{{ if .laptop -}}
+hl.bind(mainMod .. " + F5", hl.dsp.exec_cmd("brightnessctl -e4 -n2 set 5%-"),                  { locked = true, repeating = true })
+hl.bind(mainMod .. " + F6", hl.dsp.exec_cmd("brightnessctl -e4 -n2 set 5%+"),                  { locked = true, repeating = true })
+{{ end }}
+-- Playback (playerctl)
+hl.bind("XF86AudioNext",  hl.dsp.exec_cmd("playerctl next"),       { locked = true })
+hl.bind("XF86AudioPause", hl.dsp.exec_cmd("playerctl play-pause"), { locked = true })
+hl.bind("XF86AudioPlay",  hl.dsp.exec_cmd("playerctl play-pause"), { locked = true })
+hl.bind("XF86AudioPrev",  hl.dsp.exec_cmd("playerctl previous"),   { locked = true })
+
+-- ── Screenshots ──────────────────────────────────────────────────────────────────────
+hl.bind("PRINT",                hl.dsp.exec_cmd("grimblast -n copysave area"))
+hl.bind("SHIFT + PRINT",        hl.dsp.exec_cmd("grimblast -n copysave output"))
+hl.bind("CTRL + SHIFT + PRINT", hl.dsp.exec_cmd("grimblast -n copysave screen"))
+
+-- ── Clipboard ─────────────────────────────────────────────────────────────────────────
+hl.bind("SUPER + V", hl.dsp.exec_cmd("cliphist list | fuzzel -d | cliphist decode | wl-copy"))
+
+-- ── Zoom ─────────────────────────────────────────────────────────────────────────────
+hl.bind(mainMod .. " + equal", hl.dsp.exec_cmd(
+    "f=$(hyprctl getoption cursor:zoom_factor | awk '/float:/{print $2}');" ..
+    "if [ \"$f\" = \"1.000000\" ]; then hyprctl eval 'hl.config({cursor={zoom_factor=2.0}})';" ..
+    "else hyprctl eval 'hl.config({cursor={zoom_factor=1.0}})'; fi"
+))
+
+-- ── Accesibility ────────────────────────────────────────────────────────────────────
+-- Keyboard-driven pointer control (wl-kbptr)
+hl.bind("SUPER + S",         hl.dsp.exec_cmd("pkill wl-kbptr || wl-kbptr"))
+hl.bind("SUPER + SHIFT + S", hl.dsp.exec_cmd("pkill wl-kbptr || wl-kbptr -o 'general.modes=split,click'"))
+
+-- ── Transcription ────────────────────────────────────────────────────────────
+hl.bind(mainMod .. " + D", hl.dsp.exec_cmd("$HOME/exec-apps/Handy_0.8.3_amd64.AppImage --toggle-transcription"))
+
+hl.bind(mainMod .. "+ SHIFT + T", hl.dsp.exec_cmd("brave --app=https://monkeytype.com --class=brave-monkeytype"))

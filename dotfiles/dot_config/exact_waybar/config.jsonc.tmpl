@@ -1,0 +1,114 @@
+{
+    "layer": "top",
+    "position": "bottom",
+    "height": 38,
+    "spacing": 4,
+
+    "modules-left":   ["hyprland/workspaces"],
+    "modules-center": ["clock"],
+    "modules-right":  ["group/state", "group/audio", "group/power", "group/connectivity", "tray"],
+
+    "hyprland/workspaces": {
+        "on-click": "activate"
+    },
+
+    "clock": {
+        "format": "{:%I:%M:%S %p · %a %d %b}",
+        "interval": 1,
+        "on-click": "kitty --class calendar -e calcurse"
+    },
+
+    "group/audio": {
+        "orientation": "horizontal",
+        "modules": ["pulseaudio#output", "pulseaudio#microphone"]
+    },
+
+    "pulseaudio#microphone": {
+        "format":              "{format_source}",
+        "format-source":       "",
+        "format-source-muted": "󰍭",
+        "on-click":            "pavucontrol -t 4"
+    },
+
+    "pulseaudio#output": {
+        "format":        "{icon}",
+        "format-muted":  "",
+        "format-icons":  { "default": ["", "", ""] },
+        "on-click":      "pavucontrol -t 3"
+    },
+
+    "group/state": {
+        "orientation": "horizontal",
+        "modules": ["custom/hypridle", "custom/dnd"]
+    },
+
+    "custom/hypridle": {
+        "exec":        "pidof hypridle > /dev/null && echo '{\"text\":\"󰛊\",\"tooltip\":\"Idle active\"}' || echo '{\"text\":\"󰅶\",\"tooltip\":\"Awake\"}'",
+        "return-type": "json",
+        "interval":    "once",
+        "signal":      8,
+        "on-click":    "hypridle-toggle"
+    },
+
+    "custom/dnd": {
+        "exec":        "makoctl mode | grep -q '^do-not-disturb$' && echo '{\"text\":\"󰂛\",\"tooltip\":\"Do Not Disturb\"}' || echo '{\"text\":\"󰂚\",\"tooltip\":\"Notifications on\"}'",
+        "return-type": "json",
+        "interval":    "once",
+        "signal":      9,
+        "on-click":    "dnd-toggle"
+    },
+
+    "group/power": {
+        "orientation": "horizontal",
+        "modules": [{{ if .laptop }}"backlight", "battery", {{ end }}"custom/power-profile"]
+    },
+{{ if .laptop }}
+    "backlight": {
+        "format":         "{icon} {percent}%",
+        "format-icons":   ["󰃞", "󰃟", "󰃠"],
+        "on-scroll-up":   "brightnessctl -e4 -n2 set 5%+",
+        "on-scroll-down": "brightnessctl -e4 -n2 set 5%-"
+    },
+
+    "battery": {
+        "format":          "{icon} {capacity}%",
+        "format-charging": " {capacity}%",
+        "format-icons":    ["", "", "", "", ""],
+        "on-click":        "power-profile --menu",
+        "states": {
+            "warning":  30,
+            "critical": 15
+        }
+    },
+{{ end }}
+    "custom/power-profile": {
+        "exec":        "power-profile",
+        "return-type": "json",
+        "interval":    5,
+        "on-click":    "power-profile --menu"
+    },
+
+    "group/connectivity": {
+        "orientation": "horizontal",
+        "modules": ["bluetooth", "network"]
+    },
+
+    "bluetooth": {
+        "format":           "󰂯",
+        "format-connected": "󰂱",
+        "format-disabled":  "󰂲",
+        "format-off":       "󰂲",
+        "on-click":         "blueman-manager"
+    },
+
+    "network": {
+        "on-click":            "kitty --class nmtui -e nmtui",
+        "format-wifi":         "",
+        "format-ethernet":     "",
+        "format-disconnected": ""
+    },
+
+    "tray": {
+        "spacing": 8
+    }
+}

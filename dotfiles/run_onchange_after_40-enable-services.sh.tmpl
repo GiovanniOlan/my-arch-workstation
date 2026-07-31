@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+#
+# Enables the services the deployed configurations depend on. Runs after the
+# files are written: the user services below read configuration that chezmoi
+# has just placed.
+set -euo pipefail
+
+{{ template "lib-log.bash" . }}
+
+user_services=(
+    pipewire
+    pipewire-pulse
+    wireplumber
+)
+
+system_services=(
+    NetworkManager
+    bluetooth
+    power-profiles-daemon
+)
+
+info "Enabling user services..."
+systemctl --user enable --now "${user_services[@]}"
+
+info "Enabling system services..."
+sudo -v
+sudo systemctl enable --now "${system_services[@]}"
+
+ok "Services enabled."

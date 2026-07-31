@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+#
+# Installs the AUR packages listed in .chezmoidata/packages.toml, bootstrapping
+# the AUR helper first if it is missing. Runs after the official packages
+# because building from the AUR needs base-devel and git.
+set -euo pipefail
+
+{{ template "lib-log.bash" . }}
+
+packages=(
+{{- range .packages.aur.common }}
+    {{ . | quote }}
+{{- end }}
+)
+
+sudo -v
+
+if ! command -v paru >/dev/null 2>&1; then
+    info "Installing paru (AUR helper)..."
+    build_dir="$(mktemp -d)"
+    _cleanup_paths+=("$build_dir")
+    git clone --depth 1 https://aur.archlinux.org/paru.git "$build_dir/paru"
+    (cd "$build_dir/paru" && makepkg -si --noconfirm)
+    ok "paru installed."
+else
+    ok "paru already installed."
+fi
+
+info "Installing ${#packages[@]} packages from the AUR..."
+
+paru -S --needed --noconfirm --sudoloop "${packages[@]}"
+
+ok "AUR packages ready."

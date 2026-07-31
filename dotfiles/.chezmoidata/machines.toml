@@ -1,0 +1,27 @@
+# Per-machine facts. The profile itself (desktop or laptop) is asked once during
+# `chezmoi init` and stored in the local chezmoi config; everything that differs
+# between machines beyond that boolean lives here, so adding a third machine is
+# a data edit and never a config edit.
+#
+# Idle timeouts are in seconds. A zero disables that stage: a desktop has no
+# backlight to dim and no reason to suspend, so it only locks.
+
+[machines.desktop]
+# Two panels side by side: the 1366x768 Samsung on the left, the 1920x1080 one
+# to its right. Positions are explicit because automatic placement orders
+# outputs by connection and would not reliably reproduce this arrangement.
+# Mode and scale stay automatic so a cable or EDID change does not need an edit.
+monitors = [
+  { output = "DP-3", mode = "preferred", position = "0x0", scale = "auto" },
+  { output = "HDMI-A-1", mode = "preferred", position = "1366x0", scale = "auto" },
+]
+idle_dim_secs     = 0
+idle_lock_secs    = 600
+idle_suspend_secs = 0
+
+[machines.laptop]
+# Single built-in panel: the empty output matches whatever it is called.
+monitors          = [{ output = "", mode = "preferred", position = "auto", scale = "auto" }]
+idle_dim_secs     = 60
+idle_lock_secs    = 180
+idle_suspend_secs = 600

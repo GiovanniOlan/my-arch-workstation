@@ -1,0 +1,49 @@
+background {
+    monitor =
+    path = screenshot
+    blur_passes = 3
+    blur_size = 8
+    noise = 0.01
+    contrast = 0.9
+    brightness = 0.75
+}
+
+shape {
+    monitor =
+    size = 380, 160
+    color = rgba(0, 0, 0, 0.55)
+    rounding = 18
+    position = 0, 0
+    halign = center
+    valign = center
+}
+
+label {
+    monitor =
+    text = 󰌾
+    color = rgba(255, 255, 255, 0.85)
+    font_size = {{ .theme.sizes.lock }}
+    font_family = {{ .theme.fonts.mono }}
+    position = 0, 28
+    halign = center
+    valign = center
+}
+
+input-field {
+    monitor =
+    size = 320, 52
+    outline_thickness = 0
+    dots_size = 0.25
+    dots_spacing = 0.2
+    dots_center = true
+    outer_color = rgba(0, 0, 0, 0)
+    inner_color = rgba(255, 255, 255, 0.15)
+    font_color = rgba(255, 255, 255, 0.9)
+    fade_on_empty = false
+    placeholder_text =
+    capslock_color = rgba(220, 80, 80, 0.9)
+    position = 0, -28
+    halign = center
+    valign = center
+    rounding = 10
+}

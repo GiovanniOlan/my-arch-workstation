@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+#
+# Materialises the user directories declared in ~/.config/user-dirs.dirs. Runs
+# after the files are written, and re-runs whenever that declaration changes,
+# because the hash below is part of this script's rendered content.
+#
+# user-dirs.dirs digest: {{ include (joinPath .chezmoi.sourceDir "dot_config" "user-dirs.dirs") | sha256sum }}
+set -euo pipefail
+
+{{ template "lib-log.bash" . }}
+
+info "Creating user directories..."
+
+dirs_file="$HOME/.config/user-dirs.dirs"
+
+# Create every declared directory before xdg-user-dirs-update gets to look at
+# them. It does not create the ones that are missing: it reports them as
+# removed and rewrites the declaration to point at $HOME, which would undo the
+# file chezmoi just wrote and leave the two fighting on every apply.
+#
+# Sourcing the file expands the $HOME in its values; re-reading it afterwards
+# yields the variable names, so nothing here has to hardcode the list.
+# shellcheck source=/dev/null
+. "$dirs_file"
+while IFS='=' read -r name _; do
+    case "$name" in
+        XDG_*_DIR) mkdir -p "${!name}" ;;
+    esac
+done <"$dirs_file"
+
+xdg-user-dirs-update
+
+ok "User directories ready."

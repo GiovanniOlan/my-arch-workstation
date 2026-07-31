@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+#
+# Installs the official-repository packages listed in .chezmoidata/packages.toml.
+# The list is rendered into this script, so editing packages.toml changes this
+# file's content and chezmoi re-runs it on the next apply without being asked.
+set -euo pipefail
+
+{{ template "lib-log.bash" . }}
+
+packages=(
+{{- range .packages.pacman.common }}
+    {{ . | quote }}
+{{- end }}
+{{- if .laptop }}
+{{- range .packages.pacman.laptop }}
+    {{ . | quote }}
+{{- end }}
+{{- end }}
+)
+
+info "Installing ${#packages[@]} packages from the official repositories..."
+
+sudo -v
+sudo pacman -S --needed --noconfirm "${packages[@]}"
+
+ok "Official packages ready."

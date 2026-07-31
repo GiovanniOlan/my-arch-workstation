@@ -1,0 +1,23 @@
+hl.config({
+    input = {
+        kb_layout  = "us",
+        kb_variant = "altgr-intl",
+
+        follow_mouse = 1,
+        sensitivity  = 0,
+{{ if .laptop }}
+        touchpad = {
+            -- natural_scroll = false,
+            natural_scroll = true,
+        },
+{{ end }}    },
+})
+{{ if .laptop }}
+-- Three-finger horizontal swipe to change workspace: a touchpad gesture, so it
+-- only exists where there is a touchpad.
+hl.gesture({
+    fingers   = 3,
+    direction = "horizontal",
+    action    = "workspace",
+})
+{{ end -}}
