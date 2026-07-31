@@ -4,7 +4,16 @@
 # after the files are written, and re-runs whenever that declaration changes,
 # because the hash below is part of this script's rendered content.
 #
-# user-dirs.dirs digest: {{ include (joinPath .chezmoi.sourceDir "dot_config" "user-dirs.dirs") | sha256sum }}
+# That declaration is a byte-for-byte copy of what xdg-user-dirs-update itself
+# writes, plus the one entry it knows nothing about (XDG_SCREENSHOTS_DIR, which
+# it preserves). That is not decoration: xdg-user-dirs.service is a user unit
+# enabled by default, so the tool runs at every login no matter what this script
+# does. Anything it would change -- its comment header, the PROJECTS entry from
+# /etc/xdg/user-dirs.defaults, or the 0600 permissions -- has to be what chezmoi
+# declares too, or the two rewrite the file against each other forever. The
+# private_ prefix on the source file is what matches those permissions.
+#
+# user-dirs.dirs digest: {{ include (joinPath .chezmoi.sourceDir "dot_config" "private_user-dirs.dirs") | sha256sum }}
 set -euo pipefail
 
 {{ template "lib-log.bash" . }}
