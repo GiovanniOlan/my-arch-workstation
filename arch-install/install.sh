@@ -29,6 +29,8 @@ ask() {
     fi
 }
 
+MIN_SECRET_LENGTH=3
+
 ask_secret() {
     local -n dest="$1"
     local prompt="$2" default="$3" env_name="$4"
@@ -39,8 +41,11 @@ ask_secret() {
             read -rsp "$prompt [Enter = use \$$env_name]: " first
             echo
             if [[ -z "$first" ]]; then
-                dest="$default"
-                return
+                first="$default"
+                second="$default"
+            else
+                read -rsp "Confirm: " second
+                echo
             fi
         else
             read -rsp "$prompt: " first
@@ -49,14 +54,19 @@ ask_secret() {
                 warn "It cannot be empty."
                 continue
             fi
+            read -rsp "Confirm: " second
+            echo
         fi
 
-        read -rsp "Confirm: " second
-        echo
-        if [[ "$first" == "$second" ]]; then
-            break
+        if [[ "$first" != "$second" ]]; then
+            warn "They do not match, try again."
+            continue
         fi
-        warn "They do not match, try again."
+        if (( ${#first} < MIN_SECRET_LENGTH )); then
+            warn "It must be at least $MIN_SECRET_LENGTH characters."
+            continue
+        fi
+        break
     done
 
     dest="$first"
@@ -104,10 +114,12 @@ ask DISK "Target disk (e.g. /dev/sda, /dev/nvme0n1)" "${ARCH_INSTALL_DISK:-}"
 [[ -b "$DISK" ]] || die "Not a valid block device: $DISK"
 
 ask HOST_NAME "Hostname" "${ARCH_INSTALL_HOSTNAME:-}"
-[[ -n "$HOST_NAME" ]] || die "Hostname cannot be empty."
+[[ "$HOST_NAME" =~ ^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$ ]] \
+    || die "Invalid hostname: '$HOST_NAME'. Use letters, digits and hyphens, not starting or ending with a hyphen."
 
 ask USERNAME "Username" "${ARCH_INSTALL_USERNAME:-}"
-[[ -n "$USERNAME" ]] || die "Username cannot be empty."
+[[ "$USERNAME" =~ ^[a-z_][a-z0-9_-]{0,31}$ ]] \
+    || die "Invalid username: '$USERNAME'. Use lowercase letters, digits, underscore and hyphen, starting with a letter or underscore."
 
 ask_secret USER_PASS "Password for $USERNAME" \
     "${ARCH_INSTALL_USER_PASS:-}" ARCH_INSTALL_USER_PASS
@@ -115,9 +127,14 @@ ask_secret USER_PASS "Password for $USERNAME" \
 ask_secret LUKS_PASS "LUKS passphrase" \
     "${ARCH_INSTALL_LUKS_PASS:-}" ARCH_INSTALL_LUKS_PASS
 
-ask SWAP_SIZE "Swap size in GiB" "${ARCH_INSTALL_SWAP_SIZE:-4}"
+RAM_GIB=$(( ( $(awk '/^MemTotal:/{print $2}' /proc/meminfo) + 1048575 ) / 1048576 ))
+
+ask SWAP_SIZE "Swap size in GiB" "${ARCH_INSTALL_SWAP_SIZE:-$RAM_GIB}"
 [[ "$SWAP_SIZE" =~ ^[0-9]+$ ]] || die "Swap size must be a whole number of GiB: $SWAP_SIZE"
 [[ "$SWAP_SIZE" -gt 0 ]] || die "Swap size must be greater than 0."
+if [[ "$SWAP_SIZE" -lt "$RAM_GIB" ]]; then
+    warn "Swap (${SWAP_SIZE}G) is smaller than RAM (${RAM_GIB}G): hibernation will not work."
+fi
 
 ##############################################
 # Destructive confirmation
@@ -171,6 +188,13 @@ cryptsetup close cryptroot 2>/dev/null || true
 # Partitioning
 ##############################################
 
+info "Discarding previous contents of $DISK..."
+if blkdiscard -f "$DISK" 2>/dev/null; then
+    ok "Previous contents discarded."
+else
+    warn "This device does not support discarding: previous contents are left in place."
+fi
+
 info "Partitioning $DISK..."
 
 sgdisk --zap-all "$DISK"
@@ -217,7 +241,8 @@ mkfs.btrfs -L archlinux /dev/mapper/cryptroot
 mount /dev/mapper/cryptroot /mnt
 
 info "Creating subvolumes..."
-for subvol in @ @home @snapshots @var_log @var_cache_pacman_pkg @var_tmp @swap; do
+for subvol in @ @home @snapshots @var_log @var_cache_pacman_pkg @var_tmp \
+    @var_lib_docker @swap; do
     btrfs subvolume create "/mnt/$subvol"
 done
 
@@ -230,21 +255,23 @@ umount /mnt
 info "Mounting subvolumes..."
 
 BTRFS_OPTS="noatime,compress=zstd,space_cache=v2"
+SWAP_OPTS="noatime,space_cache=v2"
 
 mount -o "${BTRFS_OPTS},subvol=@" /dev/mapper/cryptroot /mnt
 
-mkdir -p /mnt/{home,.snapshots,boot/efi,swap,var/log,var/cache/pacman/pkg,var/tmp}
+mkdir -p /mnt/{home,.snapshots,boot/efi,swap,var/log,var/cache/pacman/pkg,var/tmp,var/lib/docker}
 
 mount -o "${BTRFS_OPTS},subvol=@home" /dev/mapper/cryptroot /mnt/home
 mount -o "${BTRFS_OPTS},subvol=@snapshots" /dev/mapper/cryptroot /mnt/.snapshots
 mount -o "${BTRFS_OPTS},subvol=@var_log" /dev/mapper/cryptroot /mnt/var/log
 mount -o "${BTRFS_OPTS},subvol=@var_cache_pacman_pkg" /dev/mapper/cryptroot /mnt/var/cache/pacman/pkg
 mount -o "${BTRFS_OPTS},subvol=@var_tmp" /dev/mapper/cryptroot /mnt/var/tmp
-mount -o "${BTRFS_OPTS},subvol=@swap" /dev/mapper/cryptroot /mnt/swap
+mount -o "${BTRFS_OPTS},subvol=@var_lib_docker" /dev/mapper/cryptroot /mnt/var/lib/docker
+mount -o "${SWAP_OPTS},subvol=@swap" /dev/mapper/cryptroot /mnt/swap
 
 wipefs -a "$EFI_PART"
 mkfs.fat -F32 -n EFI "$EFI_PART"
-mount -t vfat "$EFI_PART" /mnt/boot/efi
+mount -t vfat -o fmask=0077,dmask=0077 "$EFI_PART" /mnt/boot/efi
 
 ok "Filesystems mounted."
 
@@ -266,7 +293,14 @@ chmod 600 /mnt/swap/swapfile
 mkswap /mnt/swap/swapfile
 swapon /mnt/swap/swapfile
 
-ok "Swapfile active."
+SWAP_OFFSET="$(btrfs inspect-internal map-swapfile -r /mnt/swap/swapfile 2>/dev/null || true)"
+if [[ -n "$SWAP_OFFSET" ]]; then
+    RESUME_CMDLINE=" resume=/dev/mapper/cryptroot resume_offset=${SWAP_OFFSET}"
+    ok "Swapfile active (hibernation offset ${SWAP_OFFSET})."
+else
+    RESUME_CMDLINE=""
+    warn "Could not read the swapfile offset: hibernation will not be configured."
+fi
 
 ##############################################
 # Base system
@@ -276,11 +310,14 @@ info "Installing the base system (this takes a while)..."
 
 PKGS=(
     base linux linux-headers linux-firmware
+    linux-lts linux-lts-headers
     btrfs-progs
     mkinitcpio
     grub efibootmgr
     snapper snap-pac grub-btrfs inotify-tools
     networkmanager
+    chrony
+    firewalld
     sudo git base-devel
     neovim
 )
@@ -331,11 +368,9 @@ echo "KEYMAP=${KEYMAP}" > /etc/vconsole.conf
 echo "${HOST_NAME}" > /etc/hostname
 printf '127.0.0.1\tlocalhost\n::1\t\tlocalhost\n127.0.1.1\t${HOST_NAME}.localdomain ${HOST_NAME}\n' > /etc/hosts
 
-# initramfs: sd-encrypt opens the volume using the embedded keyfile
 sed -i 's/^HOOKS=.*/HOOKS=(base systemd autodetect microcode modconf kms keyboard sd-vconsole block sd-encrypt filesystems fsck)/' /etc/mkinitcpio.conf
 sed -i 's|^FILES=.*|FILES=(/crypto_keyfile.bin)|' /etc/mkinitcpio.conf
 mkinitcpio -P
-chmod 600 /boot/initramfs-*.img
 
 # User account. root stays locked: administration goes through privilege
 # elevation. The password is set after this block on purpose: in here the text
@@ -343,10 +378,21 @@ chmod 600 /boot/initramfs-*.img
 # break or, worse, run.
 useradd -m -G wheel,audio,video,storage "${USERNAME}"
 passwd -l root
-sed -i 's/^# %wheel ALL=(ALL:ALL) ALL$/%wheel ALL=(ALL:ALL) ALL/' /etc/sudoers
 
-# GRUB on an encrypted disk: it needs to read /boot, which lives in the volume
-sed -i "s|^GRUB_CMDLINE_LINUX=.*|GRUB_CMDLINE_LINUX=\"rd.luks.name=${LUKS_UUID}=cryptroot rd.luks.key=/crypto_keyfile.bin root=/dev/mapper/cryptroot rootflags=subvol=@\"|" /etc/default/grub
+# A drop-in rather than an edit of /etc/sudoers: uncommenting a line with sed
+# depends on an upstream comment staying byte for byte the same, and sed reports
+# success even when it matches nothing. With root locked, a silent miss there
+# leaves a machine with no way in at all. visudo -c makes a mistake fatal here,
+# under set -e, instead of at first boot.
+printf '%%wheel ALL=(ALL:ALL) ALL\n' > /etc/sudoers.d/10-wheel
+chmod 440 /etc/sudoers.d/10-wheel
+visudo -cf /etc/sudoers.d/10-wheel
+
+# GRUB on an encrypted disk: it needs to read /boot, which lives in the volume.
+# rd.luks.options=discard lets TRIM through to the SSD, which LUKS blocks by
+# default. It leaks which blocks are in use — not their contents — in exchange
+# for the drive not degrading as it fills up.
+sed -i "s|^GRUB_CMDLINE_LINUX=.*|GRUB_CMDLINE_LINUX=\"rd.luks.name=${LUKS_UUID}=cryptroot rd.luks.key=/crypto_keyfile.bin rd.luks.options=${LUKS_UUID}=discard root=/dev/mapper/cryptroot rootflags=subvol=@${RESUME_CMDLINE}\"|" /etc/default/grub
 sed -i 's/^#GRUB_ENABLE_CRYPTODISK=y/GRUB_ENABLE_CRYPTODISK=y/' /etc/default/grub
 grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=GRUB
 
@@ -376,6 +422,10 @@ ExecStart=/usr/bin/grub-btrfsd --syslog /.snapshots
 EOF
 
 systemctl enable NetworkManager
+systemctl enable chronyd.service
+systemctl disable systemd-timesyncd.service || true
+systemctl enable firewalld.service
+systemctl enable fstrim.timer
 systemctl enable grub-btrfsd.service
 systemctl enable snapper-cleanup.timer
 
