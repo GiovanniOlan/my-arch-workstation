@@ -15,8 +15,9 @@
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=../../lib/log.sh
-source "$SCRIPT_DIR/../../lib/log.sh"
+# shellcheck source-path=SCRIPTDIR
+# shellcheck source=../log.sh
+source "$SCRIPT_DIR/../log.sh"
 
 failures=0
 
@@ -67,6 +68,7 @@ check "the destination matches the source state (chezmoi verify)" chezmoi verify
 
 for config in hypr/keybinds.lua waybar/config.jsonc fuzzel/fuzzel.ini mako/config \
               wl-kbptr/config fontconfig/fonts.conf; do
+    # shellcheck disable=SC2088  # the tilde is prose in the report line, not a path
     check "~/.config/$config is a regular file, not a link into a clone" \
         test -f "$HOME/.config/$config" -a ! -L "$HOME/.config/$config"
 done
@@ -75,6 +77,7 @@ for script in action-menu dnd-toggle hypridle-toggle power-profile; do
     check "$script is on PATH and executable" test -x "$HOME/.local/bin/$script"
 done
 
+# shellcheck disable=SC2088  # the tilde is prose in the report line, not a path
 check "~/.bash_profile starts the compositor on tty1" \
     grep -q 'start-hyprland' "$HOME/.bash_profile"
 
@@ -84,6 +87,7 @@ check "~/.bash_profile starts the compositor on tty1" \
 # The failure this catches: xdg-user-dirs-update reassigning every directory to
 # $HOME because none of them existed when it ran.
 
+# shellcheck disable=SC2016  # the literal string $HOME is what is being grepped for
 check "user directories point at real subdirectories, not at \$HOME" \
     grep -q 'XDG_DESKTOP_DIR="\$HOME/Desktop"' "$HOME/.config/user-dirs.dirs"
 

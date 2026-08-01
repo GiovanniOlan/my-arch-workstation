@@ -1,5 +1,21 @@
 #!/usr/bin/env bash
 #
+# Part 1: turns a blank machine into a minimal, bootable Arch Linux install.
+#
+# Run it from the Arch ISO live environment, straight off the network:
+#
+#     bash <(curl -fsSL https://github.com/GiovanniOlan/my-arch-workstation/raw/main/arch-install/install.sh)
+#
+# Process substitution rather than `curl … | bash` on purpose. With a pipe the
+# script itself arrives on stdin, so every prompt below would read the pipe
+# instead of the keyboard and the password reads would hit end of file straight
+# away. Written this way the script is a file descriptor and stdin stays the
+# terminal.
+#
+# Nothing outside this file is needed to run it. That is why the message helpers
+# are carried inline instead of sourced: on the live ISO there is no clone of the
+# repository to source them from.
+#
 # Optional preloaded answers, offered as the default of each prompt:
 #
 #   ARCH_INSTALL_DISK=/dev/vda
@@ -8,13 +24,38 @@
 #   ARCH_INSTALL_USER_PASS=test
 #   ARCH_INSTALL_LUKS_PASS=testtest
 #   ARCH_INSTALL_SWAP_SIZE=1
+#   ARCH_INSTALL_KEYMAP=us
+#   ARCH_INSTALL_TIMEZONE=America/Mexico_City
+#   ARCH_INSTALL_MACHINE=laptop
+#   ARCH_INSTALL_CHAIN=y
+#
+# And the repository the chained Part 2 clones, for forks and testing:
+#
+#   ARCH_INSTALL_REPO_URL=https://github.com/GiovanniOlan/my-arch-workstation.git
 
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-# shellcheck source=../lib/log.sh
-source "$REPO_ROOT/lib/log.sh"
+##############################################
+# Message helpers
+##############################################
+# A copy of arch-install/log.sh, on purpose: see that file for why the entry
+# points carry their own instead of loading it.
+
+RED='\033[0;31m'
+YELLOW='\033[1;33m'
+GREEN='\033[0;32m'
+BOLD='\033[1m'
+RESET='\033[0m'
+
+info() { echo -e "${BOLD}:: $*${RESET}"; }
+ok() { echo -e "${GREEN}[✓] $*${RESET}"; }
+warn() { echo -e "${YELLOW}[!] $*${RESET}"; }
+die() {
+    echo -e "${RED}[✗] $*${RESET}" >&2
+    exit 1
+}
+
+REPO_URL="${ARCH_INSTALL_REPO_URL:-https://github.com/GiovanniOlan/my-arch-workstation.git}"
 
 ask() {
     local -n dest="$1"
@@ -69,6 +110,7 @@ ask_secret() {
         break
     done
 
+    # shellcheck disable=SC2034  # dest is a nameref: this writes the caller's variable
     dest="$first"
 }
 
@@ -86,24 +128,34 @@ ok "UEFI firmware detected."
 ok "Internet connection verified."
 
 ##############################################
-# Preparation left to the user
-##############################################
-
-echo
-warn "This script does NOT do the following — do it before continuing:"
-warn "  Set the timezone:  timedatectl set-timezone Region/City"
-warn "  Check the clock:   timedatectl status"
-warn "  Set the keymap:    loadkeys <layout>   (e.g. loadkeys es, loadkeys us)"
-echo
-read -rp "Everything above is set. Continue? [y/N] " REPLY_CONTINUE
-if [[ "${REPLY_CONTINUE,,}" != "y" ]]; then
-    info "Aborted. Nothing was modified."
-    exit 0
-fi
-
-##############################################
 # Installation data
 ##############################################
+# Every question is asked here, in one block, before anything is written. Past
+# the destructive confirmation below, the installation runs to the end without
+# asking for anything again.
+
+# The keyboard layout goes first and is applied on the spot. The LUKS passphrase
+# is typed with whatever layout is active at that moment, and a mismatch does not
+# show up until the first boot, when the disk no longer opens and there is
+# nothing left to do about it.
+DETECTED_KEYMAP="$(localectl status 2>/dev/null | awk '/VC Keymap/{print $3}' || true)"
+if [[ -z "$DETECTED_KEYMAP" || "$DETECTED_KEYMAP" == "(unset)" ]]; then
+    DETECTED_KEYMAP="us"
+fi
+
+echo
+ask KEYMAP "Keyboard layout (e.g. us, es, latam)" "${ARCH_INSTALL_KEYMAP:-$DETECTED_KEYMAP}"
+loadkeys "$KEYMAP" 2>/dev/null \
+    || die "Unknown keyboard layout: '$KEYMAP'. List them with: localectl list-keymaps"
+ok "Layout '$KEYMAP' is now active: the passwords below are typed with it."
+
+DETECTED_TIMEZONE="$(timedatectl show --property=Timezone --value 2>/dev/null || true)"
+[[ -n "$DETECTED_TIMEZONE" ]] || DETECTED_TIMEZONE="UTC"
+
+ask TIMEZONE "Timezone (Region/City)" "${ARCH_INSTALL_TIMEZONE:-$DETECTED_TIMEZONE}"
+[[ -f "/usr/share/zoneinfo/$TIMEZONE" ]] \
+    || die "Unknown timezone: '$TIMEZONE'. List them with: timedatectl list-timezones"
+timedatectl set-timezone "$TIMEZONE" 2>/dev/null || true
 
 echo
 info "Available disks:"
@@ -136,6 +188,24 @@ if [[ "$SWAP_SIZE" -lt "$RAM_GIB" ]]; then
     warn "Swap (${SWAP_SIZE}G) is smaller than RAM (${RAM_GIB}G): hibernation will not work."
 fi
 
+# Part 2 is not this script's job, but the questions it needs are asked here so
+# that the first boot has nothing left to ask. The machine profile is only worth
+# collecting when it is going to be handed over, so it hangs off the answer above.
+echo
+ask CHAIN_REPLY "Apply the dotfiles automatically on the first boot? (y/n)" "${ARCH_INSTALL_CHAIN:-y}"
+case "${CHAIN_REPLY,,}" in
+    y | yes) CHAIN_DOTFILES=true ;;
+    n | no) CHAIN_DOTFILES=false ;;
+    *) die "Answer 'y' or 'n', not '$CHAIN_REPLY'." ;;
+esac
+
+MACHINE=""
+if $CHAIN_DOTFILES; then
+    ask MACHINE "Machine profile (desktop/laptop)" "${ARCH_INSTALL_MACHINE:-}"
+    [[ "$MACHINE" == "desktop" || "$MACHINE" == "laptop" ]] \
+        || die "Invalid machine profile: '$MACHINE'. Use 'desktop' or 'laptop'."
+fi
+
 ##############################################
 # Destructive confirmation
 ##############################################
@@ -143,6 +213,11 @@ fi
 echo
 warn "ALL data on $DISK will be destroyed."
 warn "Disk: $DISK  |  Hostname: $HOST_NAME  |  User: $USERNAME  |  Swap: ${SWAP_SIZE}G"
+if $CHAIN_DOTFILES; then
+    warn "Dotfiles: applied on the first boot, profile '$MACHINE'."
+else
+    warn "Dotfiles: not applied. The first boot is a plain text session."
+fi
 echo
 read -rp "Type YES to proceed: " REPLY_FINAL
 if [[ "$REPLY_FINAL" != "YES" ]]; then
@@ -153,6 +228,9 @@ fi
 ##############################################
 # Environment auto-detection
 ##############################################
+# What is left here is what the user is never asked about. The timezone and the
+# keyboard layout used to be detected in this block too; they are now questions
+# of their own, and what is detected serves as their default answer.
 
 if grep -q GenuineIntel /proc/cpuinfo; then
     UCODE="intel-ucode"
@@ -161,18 +239,6 @@ elif grep -q AuthenticAMD /proc/cpuinfo; then
 else
     UCODE=""
     warn "Unknown CPU vendor: no microcode package will be installed."
-fi
-
-TIMEZONE="$(timedatectl show --property=Timezone --value 2>/dev/null || true)"
-if [[ -z "$TIMEZONE" ]]; then
-    TIMEZONE="UTC"
-    warn "Could not determine the timezone, falling back to $TIMEZONE."
-fi
-
-KEYMAP="$(localectl status 2>/dev/null | awk '/VC Keymap/{print $3}' || true)"
-if [[ -z "$KEYMAP" || "$KEYMAP" == "(unset)" ]]; then
-    KEYMAP="us"
-    warn "Could not determine the keymap, falling back to $KEYMAP."
 fi
 
 ##############################################
@@ -221,6 +287,7 @@ info "Setting up LUKS2 on $LUKS_PART..."
 
 wipefs -a "$LUKS_PART"
 
+# shellcheck disable=SC2153  # LUKS_PASS is set by ask_secret through a nameref
 printf '%s' "$LUKS_PASS" | cryptsetup luksFormat --batch-mode --type luks2 "$LUKS_PART" -
 printf '%s' "$LUKS_PASS" | cryptsetup open "$LUKS_PART" cryptroot -
 
@@ -441,6 +508,144 @@ unset USER_PASS ARCH_INSTALL_USER_PASS
 ok "System configured."
 
 ##############################################
+# Wireless credentials handover
+##############################################
+# The live ISO connects with iwd; the installed system uses NetworkManager. They
+# keep their networks in different formats, so this is a translation rather than a
+# copy — and it means the passphrase is not typed a second time. Without it, a
+# machine installed over WiFi reaches its first boot with no way onto the network,
+# which is precisely when the chained Part 2 needs one.
+#
+# Independent of the chaining answer: a machine that cannot reach the network on
+# its own is a nuisance either way.
+
+IWD_DIR="/var/lib/iwd"
+NM_DIR="/mnt/etc/NetworkManager/system-connections"
+
+# Most recently written wins: in a live session that is the network the
+# installation itself is running over.
+WIFI_PSK_FILE=""
+if [[ -d "$IWD_DIR" ]]; then
+    WIFI_PSK_FILE="$(find "$IWD_DIR" -maxdepth 1 -name '*.psk' -printf '%T@ %p\n' 2>/dev/null \
+        | sort -rn | head -1 | cut -d' ' -f2-)"
+fi
+
+if [[ -z "$WIFI_PSK_FILE" ]]; then
+    info "No saved wireless network in the live environment: nothing to carry over."
+else
+    WIFI_SSID="$(basename "$WIFI_PSK_FILE" .psk)"
+    # iwd hex-encodes names it cannot store verbatim, prefixed with '='. Decoding
+    # them is not worth it here: nmtui after the first boot is the way out.
+    if [[ "$WIFI_SSID" == =* ]]; then
+        warn "Wireless network with a non-printable name: not carried over. Use nmtui after the first boot."
+    else
+        # NetworkManager takes either the passphrase or the 64-hex pre-shared key
+        # in the same field, so whichever iwd stored is good enough.
+        WIFI_SECRET="$(sed -n 's/^Passphrase=//p' "$WIFI_PSK_FILE" | head -1)"
+        [[ -n "$WIFI_SECRET" ]] \
+            || WIFI_SECRET="$(sed -n 's/^PreSharedKey=//p' "$WIFI_PSK_FILE" | head -1)"
+
+        if [[ -z "$WIFI_SECRET" ]]; then
+            warn "Saved network '$WIFI_SSID' holds no usable secret: not carried over."
+        else
+            mkdir -p "$NM_DIR"
+            # Created restricted and only then filled in: NetworkManager refuses to
+            # read a connection file that others can read, and writing first would
+            # leave the secret world-readable in between.
+            install -m600 /dev/null "$NM_DIR/$WIFI_SSID.nmconnection"
+            cat >"$NM_DIR/$WIFI_SSID.nmconnection" <<EOF
+[connection]
+id=$WIFI_SSID
+uuid=$(cat /proc/sys/kernel/random/uuid)
+type=wifi
+autoconnect=true
+
+[wifi]
+mode=infrastructure
+ssid=$WIFI_SSID
+
+[wifi-security]
+key-mgmt=wpa-psk
+psk=$WIFI_SECRET
+
+[ipv4]
+method=auto
+
+[ipv6]
+method=auto
+EOF
+            unset WIFI_SECRET
+            ok "Wireless network '$WIFI_SSID' carried over to the installed system."
+        fi
+    fi
+fi
+
+##############################################
+# Chaining Part 2 into the first boot
+##############################################
+# Nothing of Part 2 runs here. What gets seeded is a note saying there is work
+# pending, a shell profile that acts on it, and a temporary privilege grant so
+# that first attempt needs nobody in front of the screen.
+#
+# The clone happens on the first boot rather than now, on purpose: git is already
+# installed there as part of the base system, the machine is the real one, and
+# this script stays ignorant of dotfiles beyond a URL.
+
+if $CHAIN_DOTFILES; then
+    info "Seeding the first-boot handover..."
+
+    USER_HOME="/mnt/home/$USERNAME"
+
+    mkdir -p "$USER_HOME/.local/state"
+    cat >"$USER_HOME/.local/state/first-boot-pending" <<EOF
+# Written by the Arch installer. Its presence is what marks Part 2 as pending;
+# it is removed once the dotfiles have been applied successfully.
+REPO_URL=$REPO_URL
+MACHINE=$MACHINE
+EOF
+
+    # Provisional profile: it only covers the gap until chezmoi writes the managed
+    # one, which carries the same check so that a failed run still retries.
+    cat >"$USER_HOME/.bash_profile" <<'PROFILE'
+#
+# ~/.bash_profile — written by the Arch installer, replaced by the managed one
+# as soon as the dotfiles are applied.
+#
+
+[[ -f ~/.bashrc ]] && . ~/.bashrc
+
+if [ -f "$HOME/.local/state/first-boot-pending" ] && [ "$XDG_VTNR" = "1" ]; then
+    . "$HOME/.local/state/first-boot-pending"
+    _repo_dir="$HOME/workspaces/$(basename "$REPO_URL" .git)"
+    if [ -d "$_repo_dir/.git" ] || git clone "$REPO_URL" "$_repo_dir"; then
+        bash "$_repo_dir/arch-install/first-boot.sh"
+    else
+        echo "Could not clone $REPO_URL. Check the network and log in again." >&2
+    fi
+    unset _repo_dir
+fi
+
+# Only once nothing is pending: a failed run leaves the note in place and drops
+# to a text shell, where the error is still on screen.
+if [ -z "$DISPLAY" ] && [ "$XDG_VTNR" = "1" ] \
+    && [ ! -f "$HOME/.local/state/first-boot-pending" ] \
+    && command -v start-hyprland >/dev/null 2>&1; then
+    exec start-hyprland
+fi
+PROFILE
+
+    arch-chroot /mnt chown -R "$USERNAME:$USERNAME" "/home/$USERNAME/.local" "/home/$USERNAME/.bash_profile"
+
+    # One-shot privilege grant. first-boot.sh revokes it when it exits, however it
+    # exits, so a failed run does not leave it behind.
+    printf '%s ALL=(ALL:ALL) NOPASSWD: ALL\n' "$USERNAME" >/mnt/etc/sudoers.d/99-first-boot
+    chmod 440 /mnt/etc/sudoers.d/99-first-boot
+    arch-chroot /mnt visudo -cf /etc/sudoers.d/99-first-boot >/dev/null
+
+    ok "First boot will apply the dotfiles by itself (profile '$MACHINE')."
+fi
+
+##############################################
 # Teardown
 ##############################################
 
@@ -451,3 +656,10 @@ cryptsetup close cryptroot
 
 echo
 ok "Installation complete. Remove the installation media and reboot."
+if $CHAIN_DOTFILES; then
+    info "On the first login the dotfiles will be applied on their own: packages,"
+    info "services and desktop. It takes a while and needs no input."
+else
+    info "The system boots as a minimal install. To apply the dotfiles later, see"
+    info "the Part 2 entry point in the README."
+fi

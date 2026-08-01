@@ -1,13 +1,19 @@
 #!/usr/bin/env bash
 # shellcheck shell=bash
 #
-# Message helpers shared by every script in this repository.
+# Message helpers for the scripts of Part 1 that always run from a clone:
+# first-boot.sh and the development tooling under dev/.
+#
+# The entry points of the project (install.sh here, dotfiles/bootstrap.sh) do not
+# load this file — they carry their own copy of these helpers, because they have
+# to run on a machine that does not have the repository yet, fetched straight off
+# the network, and there is nothing there to source.
 #
 # This is a library: load it with `source`, do not execute it. Each script
 # locates it from its own path, never from the working directory:
 #
 #     SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-#     source "$SCRIPT_DIR/../lib/log.sh"
+#     source "$SCRIPT_DIR/log.sh"
 
 # Running it directly does nothing useful and usually means a caller mistake.
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then

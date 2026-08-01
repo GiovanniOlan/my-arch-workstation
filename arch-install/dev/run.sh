@@ -3,8 +3,9 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
-# shellcheck source=../../lib/log.sh
-source "$REPO_ROOT/lib/log.sh"
+# shellcheck source-path=SCRIPTDIR
+# shellcheck source=../log.sh
+source "$SCRIPT_DIR/../log.sh"
 
 CACHE_DIR="$SCRIPT_DIR/.cache"
 STATE_DIR="$SCRIPT_DIR/.state"
@@ -230,6 +231,12 @@ VM_USERNAME="testuser"
 VM_USER_PASS="test"
 VM_LUKS_PASS="testtest"
 VM_SWAP_SIZE="1"
+VM_KEYMAP="us"
+VM_TIMEZONE="America/Mexico_City"
+VM_MACHINE="desktop"
+# Chaining off by default: a test install that also provisions the desktop takes
+# far longer, so it is opted into by editing this line rather than every run.
+VM_CHAIN="n"
 
 # The VM console takes over this very terminal, so its boot messages bury the
 # block as soon as it starts. It is saved to a file and the user is given the
@@ -243,6 +250,10 @@ export ARCH_INSTALL_USERNAME=$VM_USERNAME
 export ARCH_INSTALL_USER_PASS=$VM_USER_PASS
 export ARCH_INSTALL_LUKS_PASS=$VM_LUKS_PASS
 export ARCH_INSTALL_SWAP_SIZE=$VM_SWAP_SIZE
+export ARCH_INSTALL_KEYMAP=$VM_KEYMAP
+export ARCH_INSTALL_TIMEZONE=$VM_TIMEZONE
+export ARCH_INSTALL_MACHINE=$VM_MACHINE
+export ARCH_INSTALL_CHAIN=$VM_CHAIN
 bash $REPO_MOUNT_POINT/arch-install/install.sh
 EOF
 
