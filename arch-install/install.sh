@@ -1,21 +1,5 @@
 #!/usr/bin/env bash
 #
-# Part 1: turns a blank machine into a minimal, bootable Arch Linux install.
-#
-# Run it from the Arch ISO live environment, straight off the network:
-#
-#     bash <(curl -fsSL https://github.com/GiovanniOlan/my-arch-workstation/raw/main/arch-install/install.sh)
-#
-# Process substitution rather than `curl … | bash` on purpose. With a pipe the
-# script itself arrives on stdin, so every prompt below would read the pipe
-# instead of the keyboard and the password reads would hit end of file straight
-# away. Written this way the script is a file descriptor and stdin stays the
-# terminal.
-#
-# Nothing outside this file is needed to run it. That is why the message helpers
-# are carried inline instead of sourced: on the live ISO there is no clone of the
-# repository to source them from.
-#
 # Optional preloaded answers, offered as the default of each prompt:
 #
 #   ARCH_INSTALL_DISK=/dev/vda
@@ -28,6 +12,7 @@
 #   ARCH_INSTALL_TIMEZONE=America/Mexico_City
 #   ARCH_INSTALL_MACHINE=laptop
 #   ARCH_INSTALL_CHAIN=y
+#   ARCH_INSTALL_REBOOT=n
 #
 # And the repository the chained Part 2 clones, for forks and testing:
 #
@@ -38,8 +23,6 @@ set -euo pipefail
 ##############################################
 # Message helpers
 ##############################################
-# A copy of arch-install/log.sh, on purpose: see that file for why the entry
-# points carry their own instead of loading it.
 
 RED='\033[0;31m'
 YELLOW='\033[1;33m'
@@ -130,14 +113,7 @@ ok "Internet connection verified."
 ##############################################
 # Installation data
 ##############################################
-# Every question is asked here, in one block, before anything is written. Past
-# the destructive confirmation below, the installation runs to the end without
-# asking for anything again.
 
-# The keyboard layout goes first and is applied on the spot. The LUKS passphrase
-# is typed with whatever layout is active at that moment, and a mismatch does not
-# show up until the first boot, when the disk no longer opens and there is
-# nothing left to do about it.
 DETECTED_KEYMAP="$(localectl status 2>/dev/null | awk '/VC Keymap/{print $3}' || true)"
 if [[ -z "$DETECTED_KEYMAP" || "$DETECTED_KEYMAP" == "(unset)" ]]; then
     DETECTED_KEYMAP="us"
@@ -180,7 +156,6 @@ ask_secret LUKS_PASS "LUKS passphrase" \
     "${ARCH_INSTALL_LUKS_PASS:-}" ARCH_INSTALL_LUKS_PASS
 
 RAM_GIB=$(( ( $(awk '/^MemTotal:/{print $2}' /proc/meminfo) + 1048575 ) / 1048576 ))
-
 ask SWAP_SIZE "Swap size in GiB" "${ARCH_INSTALL_SWAP_SIZE:-$RAM_GIB}"
 [[ "$SWAP_SIZE" =~ ^[0-9]+$ ]] || die "Swap size must be a whole number of GiB: $SWAP_SIZE"
 [[ "$SWAP_SIZE" -gt 0 ]] || die "Swap size must be greater than 0."
@@ -188,9 +163,6 @@ if [[ "$SWAP_SIZE" -lt "$RAM_GIB" ]]; then
     warn "Swap (${SWAP_SIZE}G) is smaller than RAM (${RAM_GIB}G): hibernation will not work."
 fi
 
-# Part 2 is not this script's job, but the questions it needs are asked here so
-# that the first boot has nothing left to ask. The machine profile is only worth
-# collecting when it is going to be handed over, so it hangs off the answer above.
 echo
 ask CHAIN_REPLY "Apply the dotfiles automatically on the first boot? (y/n)" "${ARCH_INSTALL_CHAIN:-y}"
 case "${CHAIN_REPLY,,}" in
@@ -198,13 +170,19 @@ case "${CHAIN_REPLY,,}" in
     n | no) CHAIN_DOTFILES=false ;;
     *) die "Answer 'y' or 'n', not '$CHAIN_REPLY'." ;;
 esac
-
 MACHINE=""
 if $CHAIN_DOTFILES; then
     ask MACHINE "Machine profile (desktop/laptop)" "${ARCH_INSTALL_MACHINE:-}"
     [[ "$MACHINE" == "desktop" || "$MACHINE" == "laptop" ]] \
         || die "Invalid machine profile: '$MACHINE'. Use 'desktop' or 'laptop'."
 fi
+
+REBOOT_REPLY="${ARCH_INSTALL_REBOOT:-y}"
+case "${REBOOT_REPLY,,}" in
+    y | yes) AUTO_REBOOT=true ;;
+    n | no) AUTO_REBOOT=false ;;
+    *) die "ARCH_INSTALL_REBOOT must be 'y' or 'n', not '$REBOOT_REPLY'." ;;
+esac
 
 ##############################################
 # Destructive confirmation
@@ -218,6 +196,9 @@ if $CHAIN_DOTFILES; then
 else
     warn "Dotfiles: not applied. The first boot is a plain text session."
 fi
+if $AUTO_REBOOT; then
+    warn "Reboot: automatic once the install finishes."
+fi
 echo
 read -rp "Type YES to proceed: " REPLY_FINAL
 if [[ "$REPLY_FINAL" != "YES" ]]; then
@@ -228,9 +209,6 @@ fi
 ##############################################
 # Environment auto-detection
 ##############################################
-# What is left here is what the user is never asked about. The timezone and the
-# keyboard layout used to be detected in this block too; they are now questions
-# of their own, and what is detected serves as their default answer.
 
 if grep -q GenuineIntel /proc/cpuinfo; then
     UCODE="intel-ucode"
@@ -360,13 +338,27 @@ chmod 600 /mnt/swap/swapfile
 mkswap /mnt/swap/swapfile
 swapon /mnt/swap/swapfile
 
-SWAP_OFFSET="$(btrfs inspect-internal map-swapfile -r /mnt/swap/swapfile 2>/dev/null || true)"
-if [[ -n "$SWAP_OFFSET" ]]; then
+SWAP_OFFSET=""
+SWAP_OFFSET_ERROR=""
+if SWAP_OFFSET_RAW="$(btrfs inspect-internal map-swapfile -r /mnt/swap/swapfile 2>&1)"; then
+    SWAP_OFFSET="$SWAP_OFFSET_RAW"
+else
+    SWAP_OFFSET_ERROR="$SWAP_OFFSET_RAW"
+fi
+
+if [[ "$SWAP_OFFSET" =~ ^[0-9]+$ ]]; then
     RESUME_CMDLINE=" resume=/dev/mapper/cryptroot resume_offset=${SWAP_OFFSET}"
     ok "Swapfile active (hibernation offset ${SWAP_OFFSET})."
 else
     RESUME_CMDLINE=""
     warn "Could not read the swapfile offset: hibernation will not be configured."
+    if [[ -n "$SWAP_OFFSET_ERROR" ]]; then
+        warn "btrfs reported: $(printf '%s' "$SWAP_OFFSET_ERROR" | tr '\n' ' ')"
+    elif [[ -n "$SWAP_OFFSET" ]]; then
+        warn "Expected a number, got: $(printf '%s' "$SWAP_OFFSET" | tr '\n' ' ')"
+    fi
+    warn "Swap itself is unaffected. To set hibernation up later, read the offset"
+    warn "with: btrfs inspect-internal map-swapfile -r /swap/swapfile"
 fi
 
 ##############################################
@@ -380,7 +372,7 @@ PKGS=(
     linux-lts linux-lts-headers
     btrfs-progs
     mkinitcpio
-    grub efibootmgr
+    grub efibootmgr os-prober
     snapper snap-pac grub-btrfs inotify-tools
     networkmanager
     chrony
@@ -461,6 +453,14 @@ visudo -cf /etc/sudoers.d/10-wheel
 # for the drive not degrading as it fills up.
 sed -i "s|^GRUB_CMDLINE_LINUX=.*|GRUB_CMDLINE_LINUX=\"rd.luks.name=${LUKS_UUID}=cryptroot rd.luks.key=/crypto_keyfile.bin rd.luks.options=${LUKS_UUID}=discard root=/dev/mapper/cryptroot rootflags=subvol=@${RESUME_CMDLINE}\"|" /etc/default/grub
 sed -i 's/^#GRUB_ENABLE_CRYPTODISK=y/GRUB_ENABLE_CRYPTODISK=y/' /etc/default/grub
+
+# Other operating systems living on other disks. GRUB skips the probe by default
+# since 2.06, so the package alone changes nothing. Rewritten rather than
+# uncommented: sed reports success even when it matches nothing, and upstream has
+# already reworded the comment around this key more than once.
+sed -i '/^#\?GRUB_DISABLE_OS_PROBER=/d' /etc/default/grub
+printf 'GRUB_DISABLE_OS_PROBER=false\n' >> /etc/default/grub
+
 grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=GRUB
 
 # Snapshots. /.snapshots already holds the dedicated subvolume, but snapper
@@ -510,20 +510,10 @@ ok "System configured."
 ##############################################
 # Wireless credentials handover
 ##############################################
-# The live ISO connects with iwd; the installed system uses NetworkManager. They
-# keep their networks in different formats, so this is a translation rather than a
-# copy — and it means the passphrase is not typed a second time. Without it, a
-# machine installed over WiFi reaches its first boot with no way onto the network,
-# which is precisely when the chained Part 2 needs one.
-#
-# Independent of the chaining answer: a machine that cannot reach the network on
-# its own is a nuisance either way.
 
 IWD_DIR="/var/lib/iwd"
 NM_DIR="/mnt/etc/NetworkManager/system-connections"
 
-# Most recently written wins: in a live session that is the network the
-# installation itself is running over.
 WIFI_PSK_FILE=""
 if [[ -d "$IWD_DIR" ]]; then
     WIFI_PSK_FILE="$(find "$IWD_DIR" -maxdepth 1 -name '*.psk' -printf '%T@ %p\n' 2>/dev/null \
@@ -534,13 +524,9 @@ if [[ -z "$WIFI_PSK_FILE" ]]; then
     info "No saved wireless network in the live environment: nothing to carry over."
 else
     WIFI_SSID="$(basename "$WIFI_PSK_FILE" .psk)"
-    # iwd hex-encodes names it cannot store verbatim, prefixed with '='. Decoding
-    # them is not worth it here: nmtui after the first boot is the way out.
     if [[ "$WIFI_SSID" == =* ]]; then
         warn "Wireless network with a non-printable name: not carried over. Use nmtui after the first boot."
     else
-        # NetworkManager takes either the passphrase or the 64-hex pre-shared key
-        # in the same field, so whichever iwd stored is good enough.
         WIFI_SECRET="$(sed -n 's/^Passphrase=//p' "$WIFI_PSK_FILE" | head -1)"
         [[ -n "$WIFI_SECRET" ]] \
             || WIFI_SECRET="$(sed -n 's/^PreSharedKey=//p' "$WIFI_PSK_FILE" | head -1)"
@@ -549,9 +535,6 @@ else
             warn "Saved network '$WIFI_SSID' holds no usable secret: not carried over."
         else
             mkdir -p "$NM_DIR"
-            # Created restricted and only then filled in: NetworkManager refuses to
-            # read a connection file that others can read, and writing first would
-            # leave the secret world-readable in between.
             install -m600 /dev/null "$NM_DIR/$WIFI_SSID.nmconnection"
             cat >"$NM_DIR/$WIFI_SSID.nmconnection" <<EOF
 [connection]
@@ -583,13 +566,6 @@ fi
 ##############################################
 # Chaining Part 2 into the first boot
 ##############################################
-# Nothing of Part 2 runs here. What gets seeded is a note saying there is work
-# pending, a shell profile that acts on it, and a temporary privilege grant so
-# that first attempt needs nobody in front of the screen.
-#
-# The clone happens on the first boot rather than now, on purpose: git is already
-# installed there as part of the base system, the machine is the real one, and
-# this script stays ignorant of dotfiles beyond a URL.
 
 if $CHAIN_DOTFILES; then
     info "Seeding the first-boot handover..."
@@ -598,20 +574,11 @@ if $CHAIN_DOTFILES; then
 
     mkdir -p "$USER_HOME/.local/state"
     cat >"$USER_HOME/.local/state/first-boot-pending" <<EOF
-# Written by the Arch installer. Its presence is what marks Part 2 as pending;
-# it is removed once the dotfiles have been applied successfully.
 REPO_URL=$REPO_URL
 MACHINE=$MACHINE
 EOF
 
-    # Provisional profile: it only covers the gap until chezmoi writes the managed
-    # one, which carries the same check so that a failed run still retries.
     cat >"$USER_HOME/.bash_profile" <<'PROFILE'
-#
-# ~/.bash_profile — written by the Arch installer, replaced by the managed one
-# as soon as the dotfiles are applied.
-#
-
 [[ -f ~/.bashrc ]] && . ~/.bashrc
 
 if [ -f "$HOME/.local/state/first-boot-pending" ] && [ "$XDG_VTNR" = "1" ]; then
@@ -625,8 +592,6 @@ if [ -f "$HOME/.local/state/first-boot-pending" ] && [ "$XDG_VTNR" = "1" ]; then
     unset _repo_dir
 fi
 
-# Only once nothing is pending: a failed run leaves the note in place and drops
-# to a text shell, where the error is still on screen.
 if [ -z "$DISPLAY" ] && [ "$XDG_VTNR" = "1" ] \
     && [ ! -f "$HOME/.local/state/first-boot-pending" ] \
     && command -v start-hyprland >/dev/null 2>&1; then
@@ -636,8 +601,6 @@ PROFILE
 
     arch-chroot /mnt chown -R "$USERNAME:$USERNAME" "/home/$USERNAME/.local" "/home/$USERNAME/.bash_profile"
 
-    # One-shot privilege grant. first-boot.sh revokes it when it exits, however it
-    # exits, so a failed run does not leave it behind.
     printf '%s ALL=(ALL:ALL) NOPASSWD: ALL\n' "$USERNAME" >/mnt/etc/sudoers.d/99-first-boot
     chmod 440 /mnt/etc/sudoers.d/99-first-boot
     arch-chroot /mnt visudo -cf /etc/sudoers.d/99-first-boot >/dev/null
@@ -655,7 +618,7 @@ umount -R /mnt
 cryptsetup close cryptroot
 
 echo
-ok "Installation complete. Remove the installation media and reboot."
+ok "Installation complete."
 if $CHAIN_DOTFILES; then
     info "On the first login the dotfiles will be applied on their own: packages,"
     info "services and desktop. It takes a while and needs no input."
@@ -663,3 +626,36 @@ else
     info "The system boots as a minimal install. To apply the dotfiles later, see"
     info "the Part 2 entry point in the README."
 fi
+
+##############################################
+# Reboot
+##############################################
+
+REBOOT_DELAY=30
+
+if ! $AUTO_REBOOT; then
+    echo
+    info "Remove the installation media and reboot when ready."
+    exit 0
+fi
+
+echo
+warn "Remove the installation media now, or the firmware may boot it again."
+info "Rebooting in ${REBOOT_DELAY}s. Press any key to stay in the live environment."
+
+read -rsd '' -n 10000 -t 0.05 || true
+
+for (( REMAINING = REBOOT_DELAY; REMAINING > 0; REMAINING-- )); do
+    printf '\r    %2ds ' "$REMAINING"
+    # A keypress returns 0; the one-second timeout returns non-zero and is the
+    # normal path, so it must not be treated as an error under set -e.
+    if read -rsn1 -t 1; then
+        printf '\r%*s\r' 20 ''
+        info "Reboot cancelled. Run 'reboot' when ready."
+        exit 0
+    fi
+done
+printf '\r%*s\r' 20 ''
+
+info "Rebooting..."
+systemctl reboot
