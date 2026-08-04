@@ -18,8 +18,6 @@ DISK_SIZE="20G"
 
 OVMF_CODE="/usr/share/edk2/x64/OVMF_CODE.4m.fd"
 OVMF_VARS_TEMPLATE="/usr/share/edk2/x64/OVMF_VARS.4m.fd"
-# UEFI variables persist across runs: GRUB registers its boot entry there when
-# it installs, and losing them would leave the installed system unbootable.
 OVMF_VARS_RUN="$STATE_DIR/OVMF_VARS.fd"
 
 REPO_MOUNT_TAG="repo"
@@ -28,12 +26,6 @@ REPO_MOUNT_POINT="/repo"
 ##############################################
 # Run mode
 ##############################################
-# Installing is the default: clean disk, boot from the ISO and console over
-# serial, so text can be pasted and copied from the host terminal. With --boot
-# the already installed system comes up instead, keeping disk and UEFI
-# variables, on a graphical window: neither GRUB nor the target system speaks
-# over the serial port. That window is also where Part 2 gets exercised, so the
-# boot mode carries a GPU and the repository share as well.
 
 BOOT_INSTALLED=false
 case "${1:-}" in
@@ -64,21 +56,6 @@ ok "Required tools present."
 ##############################################
 # --boot mode: bring up the already installed system
 ##############################################
-# It needs neither the ISO nor any download: just the disk and UEFI variables
-# the installation left behind. It exits here so that the rest of the script
-# stays a linear path dedicated to installing.
-#
-# Two things this mode carries that the install mode does not need:
-#
-#   - virtio-vga-gl. The installer only ever writes to a serial console, but the
-#     installed system is where the Wayland compositor runs, and a compositor
-#     needs a DRM device with working OpenGL, which the default emulated VGA
-#     does not provide. The -vga- variant rather than plain virtio-gpu-gl
-#     because it also keeps VGA compatibility: without it the text console
-#     still shows up, but what the compositor renders never reaches the window.
-#   - The repository share. Part 2 is applied from inside the installed system,
-#     so it needs the same read-only view of the working tree that the
-#     installer gets, for the same reason: no copying, no commit, no network.
 
 if $BOOT_INSTALLED; then
     [[ -f "$STATE_DISK" ]] \
@@ -140,10 +117,7 @@ download_if_missing "$ISO_BASE_URL/$ISO_NAME.sig" "$SIG_PATH"
 ##############################################
 # Authenticity verification (GPG + WKD)
 ##############################################
-# Fingerprint of Arch's release signing key (Pierre Schmitz), as documented
-# at https://archlinux.org/download/ and confirmed as a current master key
-# at https://archlinux.org/master-keys/. If Arch rotates this key, this
-# value has to be updated by hand.
+
 ARCH_RELEASE_KEY_EMAIL="pierre@archlinux.org"
 ARCH_RELEASE_KEY_FPR="3E80CA1A8B89F69CBA57D98A76A5EF9054449A5C"
 
@@ -180,10 +154,7 @@ verify_iso_signature
 ##############################################
 # ISO kernel, to boot over the serial console
 ##############################################
-# The ISO boot menu does not speak over the serial port, so the kernel is
-# booted directly with `console=ttyS0` appended. Archiso's own parameters are
-# read from the ISO instead of being written by hand: they change with every
-# release. Extraction happens only after the signature has been verified.
+
 
 KERNEL_PATH="$CACHE_DIR/${ISO_NAME%.iso}-vmlinuz-linux"
 INITRD_PATH="$CACHE_DIR/${ISO_NAME%.iso}-initramfs-linux.img"
@@ -219,11 +190,6 @@ ok "Disposable state disk created ($DISK_SIZE, at $STATE_DISK)."
 ##############################################
 # Block to start a test install
 ##############################################
-# The repository is shared with the VM over 9p (see the QEMU invocation), so
-# the guest runs the working tree exactly as it stands on the host: no copying,
-# no commit and no network needed. The values describe this very VM — the state
-# disk is attached with `if=virtio`, so inside it shows up as /dev/vda — and
-# they live here, not in the installer, which knows of no test environment.
 
 VM_DISK="/dev/vda"
 VM_HOSTNAME="archtest"
@@ -233,14 +199,8 @@ VM_LUKS_PASS="testtest"
 VM_SWAP_SIZE="1"
 VM_KEYMAP="us"
 VM_TIMEZONE="America/Mexico_City"
-VM_MACHINE="desktop"
-# Chaining off by default: a test install that also provisions the desktop takes
-# far longer, so it is opted into by editing this line rather than every run.
-VM_CHAIN="n"
+VM_CLONE="n"
 
-# The VM console takes over this very terminal, so its boot messages bury the
-# block as soon as it starts. It is saved to a file and the user is given the
-# chance to copy it before the terminal is handed over.
 PASTE_FILE="$STATE_DIR/paste-inside-vm.sh"
 cat >"$PASTE_FILE" <<EOF
 mkdir -p $REPO_MOUNT_POINT && mount -t 9p -o trans=virtio,version=9p2000.L,ro $REPO_MOUNT_TAG $REPO_MOUNT_POINT
@@ -252,8 +212,8 @@ export ARCH_INSTALL_LUKS_PASS=$VM_LUKS_PASS
 export ARCH_INSTALL_SWAP_SIZE=$VM_SWAP_SIZE
 export ARCH_INSTALL_KEYMAP=$VM_KEYMAP
 export ARCH_INSTALL_TIMEZONE=$VM_TIMEZONE
-export ARCH_INSTALL_MACHINE=$VM_MACHINE
-export ARCH_INSTALL_CHAIN=$VM_CHAIN
+export ARCH_INSTALL_CLONE=$VM_CLONE
+export ARCH_INSTALL_REBOOT=n
 bash $REPO_MOUNT_POINT/arch-install/install.sh
 EOF
 
@@ -273,8 +233,6 @@ info "Booting VM from $ISO_NAME. Its console is this terminal."
 warn "To quit the VM: press Ctrl-A, release both, then press X."
 echo
 
-# The guest writes its console to the serial port and QEMU wires that port to
-# this terminal, so copying and pasting are the terminal's usual ones.
 qemu-system-x86_64 \
     -enable-kvm \
     -machine q35 \

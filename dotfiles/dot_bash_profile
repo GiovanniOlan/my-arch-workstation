@@ -4,27 +4,7 @@
 
 [[ -f ~/.bashrc ]] && . ~/.bashrc
 
-# Unfinished provisioning takes precedence over the desktop. The check belongs
-# here, in the managed file, and not only in the provisional profile the installer
-# writes: chezmoi replaces that one halfway through applying, so a run that fails
-# after the files are written would lose the retry and the next login would come
-# up on a half-provisioned desktop.
-if [ -f "$HOME/.local/state/first-boot-pending" ] && [ "$XDG_VTNR" = "1" ]; then
-    . "$HOME/.local/state/first-boot-pending"
-    _repo_dir="$HOME/workspaces/$(basename "$REPO_URL" .git)"
-    if [ -f "$_repo_dir/arch-install/first-boot.sh" ]; then
-        bash "$_repo_dir/arch-install/first-boot.sh"
-    else
-        echo "Provisioning is pending but $_repo_dir is missing." >&2
-    fi
-    unset _repo_dir REPO_URL MACHINE
-fi
-
-# Start the compositor on the first virtual console only. Autologin runs there,
-# so this is what turns a login into a desktop session. Other TTYs stay text.
-# Nothing pending is part of the condition: after a failed run the note survives
-# and this drops to a text shell, with the error still on screen.
 if [ -z "$DISPLAY" ] && [ "$XDG_VTNR" = "1" ] \
-    && [ ! -f "$HOME/.local/state/first-boot-pending" ]; then
+    && command -v start-hyprland >/dev/null 2>&1; then
     exec start-hyprland
 fi

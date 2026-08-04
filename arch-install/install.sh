@@ -10,11 +10,10 @@
 #   ARCH_INSTALL_SWAP_SIZE=1
 #   ARCH_INSTALL_KEYMAP=us
 #   ARCH_INSTALL_TIMEZONE=America/Mexico_City
-#   ARCH_INSTALL_MACHINE=laptop
-#   ARCH_INSTALL_CHAIN=y
+#   ARCH_INSTALL_CLONE=y
 #   ARCH_INSTALL_REBOOT=n
 #
-# And the repository the chained Part 2 clones, for forks and testing:
+# And the repository left on the installed system, for forks and testing:
 #
 #   ARCH_INSTALL_REPO_URL=https://github.com/GiovanniOlan/my-arch-workstation.git
 
@@ -164,18 +163,12 @@ if [[ "$SWAP_SIZE" -lt "$RAM_GIB" ]]; then
 fi
 
 echo
-ask CHAIN_REPLY "Apply the dotfiles automatically on the first boot? (y/n)" "${ARCH_INSTALL_CHAIN:-y}"
-case "${CHAIN_REPLY,,}" in
-    y | yes) CHAIN_DOTFILES=true ;;
-    n | no) CHAIN_DOTFILES=false ;;
-    *) die "Answer 'y' or 'n', not '$CHAIN_REPLY'." ;;
+ask CLONE_REPLY "Clone the dotfiles repository into the new system? (y/n)" "${ARCH_INSTALL_CLONE:-y}"
+case "${CLONE_REPLY,,}" in
+    y | yes) CLONE_DOTFILES=true ;;
+    n | no) CLONE_DOTFILES=false ;;
+    *) die "Answer 'y' or 'n', not '$CLONE_REPLY'." ;;
 esac
-MACHINE=""
-if $CHAIN_DOTFILES; then
-    ask MACHINE "Machine profile (desktop/laptop)" "${ARCH_INSTALL_MACHINE:-}"
-    [[ "$MACHINE" == "desktop" || "$MACHINE" == "laptop" ]] \
-        || die "Invalid machine profile: '$MACHINE'. Use 'desktop' or 'laptop'."
-fi
 
 REBOOT_REPLY="${ARCH_INSTALL_REBOOT:-y}"
 case "${REBOOT_REPLY,,}" in
@@ -191,10 +184,10 @@ esac
 echo
 warn "ALL data on $DISK will be destroyed."
 warn "Disk: $DISK  |  Hostname: $HOST_NAME  |  User: $USERNAME  |  Swap: ${SWAP_SIZE}G"
-if $CHAIN_DOTFILES; then
-    warn "Dotfiles: applied on the first boot, profile '$MACHINE'."
+if $CLONE_DOTFILES; then
+    warn "Dotfiles: repository cloned, applied by hand on the first login."
 else
-    warn "Dotfiles: not applied. The first boot is a plain text session."
+    warn "Dotfiles: not cloned."
 fi
 if $AUTO_REBOOT; then
     warn "Reboot: automatic once the install finishes."
@@ -564,48 +557,18 @@ EOF
 fi
 
 ##############################################
-# Chaining Part 2 into the first boot
+# Leaving Part 2 within reach
 ##############################################
 
-if $CHAIN_DOTFILES; then
-    info "Seeding the first-boot handover..."
+if $CLONE_DOTFILES; then
+    REPO_DIR="/home/$USERNAME/workspaces/$(basename "$REPO_URL" .git)"
 
-    USER_HOME="/mnt/home/$USERNAME"
+    info "Cloning $REPO_URL into $REPO_DIR ..."
+    arch-chroot /mnt mkdir -p "$(dirname "$REPO_DIR")"
+    arch-chroot /mnt git clone "$REPO_URL" "$REPO_DIR"
+    arch-chroot /mnt chown -R "$USERNAME:$USERNAME" "/home/$USERNAME/workspaces"
 
-    mkdir -p "$USER_HOME/.local/state"
-    cat >"$USER_HOME/.local/state/first-boot-pending" <<EOF
-REPO_URL=$REPO_URL
-MACHINE=$MACHINE
-EOF
-
-    cat >"$USER_HOME/.bash_profile" <<'PROFILE'
-[[ -f ~/.bashrc ]] && . ~/.bashrc
-
-if [ -f "$HOME/.local/state/first-boot-pending" ] && [ "$XDG_VTNR" = "1" ]; then
-    . "$HOME/.local/state/first-boot-pending"
-    _repo_dir="$HOME/workspaces/$(basename "$REPO_URL" .git)"
-    if [ -d "$_repo_dir/.git" ] || git clone "$REPO_URL" "$_repo_dir"; then
-        bash "$_repo_dir/arch-install/first-boot.sh"
-    else
-        echo "Could not clone $REPO_URL. Check the network and log in again." >&2
-    fi
-    unset _repo_dir
-fi
-
-if [ -z "$DISPLAY" ] && [ "$XDG_VTNR" = "1" ] \
-    && [ ! -f "$HOME/.local/state/first-boot-pending" ] \
-    && command -v start-hyprland >/dev/null 2>&1; then
-    exec start-hyprland
-fi
-PROFILE
-
-    arch-chroot /mnt chown -R "$USERNAME:$USERNAME" "/home/$USERNAME/.local" "/home/$USERNAME/.bash_profile"
-
-    printf '%s ALL=(ALL:ALL) NOPASSWD: ALL\n' "$USERNAME" >/mnt/etc/sudoers.d/99-first-boot
-    chmod 440 /mnt/etc/sudoers.d/99-first-boot
-    arch-chroot /mnt visudo -cf /etc/sudoers.d/99-first-boot >/dev/null
-
-    ok "First boot will apply the dotfiles by itself (profile '$MACHINE')."
+    ok "Repository cloned."
 fi
 
 ##############################################
@@ -619,9 +582,14 @@ cryptsetup close cryptroot
 
 echo
 ok "Installation complete."
-if $CHAIN_DOTFILES; then
-    info "On the first login the dotfiles will be applied on their own: packages,"
-    info "services and desktop. It takes a while and needs no input."
+if $CLONE_DOTFILES; then
+    info "The system boots as a minimal install. To turn it into the workstation,"
+    info "log in and run:"
+    echo
+    echo "    bash $REPO_DIR/dotfiles/bootstrap.sh"
+    echo
+    info "It installs packages, enables services and sets up the desktop. It takes a"
+    info "while and asks for the machine profile once."
 else
     info "The system boots as a minimal install. To apply the dotfiles later, see"
     info "the Part 2 entry point in the README."
