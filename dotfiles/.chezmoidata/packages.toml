@@ -75,8 +75,9 @@ laptop = [
 
 [packages.aur]
 common = [
-  "grimblast-git",   # screenshot wrapper used by the PRINT keybinds
-  "overskride-bin",  # bluetooth client
+  "grimblast-git",          # screenshot wrapper used by the PRINT keybinds
+  "overskride-bin",         # bluetooth client
+  "visual-studio-code-bin",
 ]
 
 [packages.flatpak]

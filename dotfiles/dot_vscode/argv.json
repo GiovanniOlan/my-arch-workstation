@@ -1,0 +1,5 @@
+// No system keyring service in this session, so VS Code can't store secrets
+// in the OS keyring. Use its internal store instead.
+{
+    "password-store": "basic"
+}
