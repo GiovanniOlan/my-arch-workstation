@@ -18,6 +18,7 @@ common = [
   # Build toolchain, needed to bootstrap the AUR helper
   "base-devel",
   "git",
+  "less",
   # Audio
   "pipewire",
   "pipewire-alsa",
