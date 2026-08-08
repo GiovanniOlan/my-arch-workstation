@@ -36,6 +36,8 @@ common = [
   "calcurse",
   "fuzzel",
   "playerctl",
+  "tmux",
+  "lazygit",
   "flatpak",
   "obsidian",
   "evince",
@@ -44,6 +46,8 @@ common = [
   "vlc-plugins-all",
   "rofimoji",
   "wtype",
+  "docker",
+  "docker-compose",
   # Status bar and its modules
   "waybar",
   "python-gobject",
@@ -85,6 +89,7 @@ common = [
   "overskride-bin",         # bluetooth client
   "visual-studio-code-bin",
   "google-chrome",
+  "brave-bin",
 ]
 
 [packages.flatpak]

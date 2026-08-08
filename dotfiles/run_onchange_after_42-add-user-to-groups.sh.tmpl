@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+#
+# Adds the user to the supplementary groups listed in .chezmoidata/user.toml.
+set -euo pipefail
+
+{{ template "lib-log.bash" . }}
+
+groups=(
+{{- range .user_groups }}
+    {{ . | quote }}
+{{- end }}
+)
+
+info "Adding {{ .chezmoi.username }} to ${#groups[@]} group(s)..."
+
+sudo -v
+for group in "${groups[@]}"; do
+    sudo usermod -aG "$group" {{ .chezmoi.username }}
+done
+
+ok "{{ .chezmoi.username }} added to: ${groups[*]}. Log out and back in for it to take effect."

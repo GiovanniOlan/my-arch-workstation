@@ -1,0 +1,6 @@
+# Supplementary groups the user account needs, declared once. The script that
+# grants them reads this list; no group name is written inside a script.
+
+user_groups = [
+  "docker",
+]
