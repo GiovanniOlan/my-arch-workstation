@@ -3,7 +3,6 @@ arch-install/dev/.state/
 
 # generados por `make install` (symlinks hacia ai/) — ver Makefile
 /CLAUDE.md
-/openspec
 /.claude/commands
 /.claude/skills
 .claude/

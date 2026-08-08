@@ -15,7 +15,6 @@ define link
 endef
 
 install: install-claude
-	$(call link,$(AI)/openspec,openspec)
 
 install-claude:
 	$(call link,../$(AI)/AGENTS.md,.claude/CLAUDE.md)
@@ -23,10 +22,10 @@ install-claude:
 	$(call link,../$(AI)/skills,.claude/skills)
 
 uninstall:
-	rm -f openspec .claude/CLAUDE.md .claude/commands .claude/skills
+	rm -f .claude/CLAUDE.md .claude/commands .claude/skills
 
 status:
-	@for f in openspec .claude/CLAUDE.md .claude/commands .claude/skills; do \
+	@for f in .claude/CLAUDE.md .claude/commands .claude/skills; do \
 		if [ -L "$$f" ]; then \
 			echo "$$f -> $$(readlink "$$f")"; \
 		elif [ -e "$$f" ]; then \
