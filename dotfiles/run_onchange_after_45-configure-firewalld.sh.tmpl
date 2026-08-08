@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+{{ template "lib-log.bash" . }}
+
+tcp_ports=(
+    53317
+)
+
+udp_ports=(
+    53317
+)
+
+info "Configuring firewalld..."
+
+sudo -v
+for port in "${tcp_ports[@]}"; do
+    sudo firewall-cmd --permanent --add-port="${port}/tcp"
+done
+for port in "${udp_ports[@]}"; do
+    sudo firewall-cmd --permanent --add-port="${port}/udp"
+done
+sudo firewall-cmd --reload
+
+ok "firewalld configured."
