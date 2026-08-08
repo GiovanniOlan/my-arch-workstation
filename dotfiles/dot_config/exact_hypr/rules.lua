@@ -55,8 +55,8 @@ hl.window_rule({
 })
 
 hl.window_rule({
-    name   = "float-blueman",
-    match  = { class = "blueman-manager" },
+    name   = "float-overskride",
+    match  = { class = "io.github.kaii_lb.Overskride" },
 
     float  = true,
     center = true,

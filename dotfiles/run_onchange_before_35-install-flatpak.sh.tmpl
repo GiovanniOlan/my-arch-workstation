@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+#
+# Installs the Flatpak applications listed in .chezmoidata/packages.toml. Runs
+# after the official packages because it needs the flatpak binary from there,
+# and the Flathub remote is configured first because a bare install has no
+# source to resolve application IDs against.
+#
+# The remote is added even when no application is declared, so adding the first
+# entry to the list later needs no extra setup.
+set -euo pipefail
+
+{{ template "lib-log.bash" . }}
+
+packages=(
+{{- range .packages.flatpak.common }}
+    {{ . | quote }}
+{{- end }}
+)
+
+sudo -v
+
+if (( ${#packages[@]} == 0 )); then
+    ok "No Flatpak applications declared."
+    exit 0
+fi
+
+info "Installing ${#packages[@]} Flatpak applications..."
+
+sudo flatpak install --noninteractive flathub "${packages[@]}"
+
+ok "Flatpak applications ready."

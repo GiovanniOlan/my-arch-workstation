@@ -40,7 +40,9 @@ common = [
   "waybar",
   "python-gobject",
   "power-profiles-daemon",
-  "blueman",
+  # Bluetooth
+  "bluez",
+  "bluez-utils",
   # Notifications
   "mako",
   "libnotify",
@@ -59,6 +61,8 @@ common = [
   "ttf-carlito",
   "ttf-jetbrains-mono-nerd",
   "ttf-liberation",
+  # Others
+  "flatpak",
 ]
 
 # Backlight control has nothing to drive on a desktop. sof-firmware is what
@@ -71,7 +75,13 @@ laptop = [
 
 [packages.aur]
 common = [
-  "grimblast-git",  # screenshot wrapper used by the PRINT keybinds
+  "grimblast-git",   # screenshot wrapper used by the PRINT keybinds
+  "overskride-bin",  # bluetooth client
+]
+
+[packages.flatpak]
+common = [
+  "org.localsend.localsend_app",
 ]
 
 # wl-kbptr (keyboard-driven pointer control) is deliberately absent: it builds
