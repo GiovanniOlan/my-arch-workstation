@@ -89,6 +89,12 @@ hl.bind("CTRL + SHIFT + PRINT", hl.dsp.exec_cmd("grimblast -n copysave screen"))
 -- ── Clipboard ─────────────────────────────────────────────────────────────────────────
 hl.bind("SUPER + V", hl.dsp.exec_cmd("cliphist list | fuzzel -d | cliphist decode | wl-copy"))
 
+-- ── Emoji / Symbols ──────────────────────────────────────────────────────────────────
+hl.bind(mainMod .. " + period", hl.dsp.exec_cmd("rofimoji --files emojis"))
+hl.bind(mainMod .. " + comma", hl.dsp.exec_cmd(
+    "rofimoji --files nerd_font miscellaneous_symbols arrows currency_symbols mathematical_operators box_drawing block_elements"
+))
+
 -- ── Zoom ─────────────────────────────────────────────────────────────────────────────
 hl.bind(mainMod .. " + equal", hl.dsp.exec_cmd(
     "f=$(hyprctl getoption cursor:zoom_factor | awk '/float:/{print $2}');" ..
