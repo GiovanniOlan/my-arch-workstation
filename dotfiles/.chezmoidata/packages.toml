@@ -63,6 +63,11 @@ common = [
   "ttf-liberation",
   # Others
   "flatpak",
+  "obsidian",
+  "evince",
+  "eog",
+  "vlc",
+  "vlc-plugins-all",
 ]
 
 # Backlight control has nothing to drive on a desktop. sof-firmware is what
@@ -78,11 +83,13 @@ common = [
   "grimblast-git",          # screenshot wrapper used by the PRINT keybinds
   "overskride-bin",         # bluetooth client
   "visual-studio-code-bin",
+  "google-chrome",
 ]
 
 [packages.flatpak]
 common = [
   "org.localsend.localsend_app",
+  "com.bitwarden.desktop",
 ]
 
 # wl-kbptr (keyboard-driven pointer control) is deliberately absent: it builds
