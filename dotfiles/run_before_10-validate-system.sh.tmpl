@@ -14,7 +14,7 @@ command -v pacman >/dev/null 2>&1 || die "This setup targets Arch Linux: pacman 
 
 command -v sudo >/dev/null 2>&1 || die "sudo is required to install packages and enable services."
 
-ping -c1 -W3 archlinux.org >/dev/null 2>&1 || die "No internet connection."
+ping -4 -c1 -W3 archlinux.org >/dev/null 2>&1 || die "No internet connection."
 
 # Ask for the password now, so it is requested once at a predictable moment
 # instead of in the middle of a package install. Each privileged script refreshes

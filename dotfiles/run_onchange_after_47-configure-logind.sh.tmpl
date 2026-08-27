@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+{{ template "lib-log.bash" . }}
+
+info "Configuring logind to hibernate on lid close..."
+
+sudo -v
+sudo mkdir -p /etc/systemd/logind.conf.d
+sudo tee /etc/systemd/logind.conf.d/10-hibernate-on-lid.conf >/dev/null <<'EOF'
+[Login]
+HandleLidSwitch=hibernate
+HandleLidSwitchExternalPower=hibernate
+HandleSuspendKey=hibernate
+EOF
+sudo systemctl reload systemd-logind
+
+ok "logind configured to hibernate on lid close."
