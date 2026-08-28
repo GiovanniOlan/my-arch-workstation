@@ -1,17 +1,3 @@
-# Single source of truth for the desktop's look.
-#
-# Colors are bare six-digit hex: no leading '#', no alpha channel. Every tool
-# below expects a different notation, so each template adds what it needs by
-# concatenation instead of storing the same color several ways:
-#
-#   waybar (CSS)     #{{ .theme.colors.accent }}
-#   fuzzel           {{ .theme.colors.accent }}ff
-#   hyprland (Lua)   rgba({{ .theme.colors.accent }}ee)
-#   wl-kbptr         #{{ .theme.colors.accent }}ff
-#
-# Pure black and pure white with transparency stay literal in the configs that
-# use them: they are not palette decisions.
-
 [theme.colors]
 bg         = "1a1a1a"  # bar and launcher background, window shadow
 fg         = "ffffff"  # primary text and labels
