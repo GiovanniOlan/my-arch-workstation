@@ -95,7 +95,7 @@ hl.window_rule({
 
 hl.window_rule({
     name     = "float-localsend",
-    match    = { class = "localsend" },
+    match    = { class = "org.localsend.localsend_app" },
 
     float    = true,
     center   = true,
@@ -107,6 +107,17 @@ hl.window_rule({
 hl.window_rule({
     name     = "float-bitwarden",
     match    = { class = "bitwarden" },
+
+    float    = true,
+    center   = true,
+    size     = "(monitor_w*0.47) (monitor_h*0.56)",
+    min_size = "1095 560",
+    max_size = "900 600",
+})
+
+hl.window_rule({
+    name     = "float-telegram",
+    match    = { class = "org.telegram.desktop" },
 
     float    = true,
     center   = true,

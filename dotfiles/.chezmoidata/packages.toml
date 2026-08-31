@@ -41,6 +41,13 @@ common = [
   "wtype",
   "docker",
   "docker-compose",
+  "emacs",
+  "ripgrep",
+  "fd",
+  "chromium",
+  "firefox",
+  "telegram-desktop",
+  "7zip",
   # Status bar and its modules
   "waybar",
   "python-gobject",
@@ -80,6 +87,8 @@ common = [
   "visual-studio-code-bin",
   "google-chrome",
   "brave-bin",
+  "nordvpn-bin",
+  "handy-bin",               # speech-to-text, used by the SUPER+D keybind
 ]
 
 [packages.flatpak]

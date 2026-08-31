@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+#
+# Clones Doom Emacs (if missing) and installs or syncs it. Runs after files
+# are applied so $DOOMDIR (dot_config/exact_doom) is already in place.
+#
+# Rerun trigger, so editing the tracked Doom config re-triggers this script
+# even though its own content does not change:
+# {{ include "dot_config/exact_doom/init.el" | sha256sum }}{{ include "dot_config/exact_doom/config.el" | sha256sum }}{{ include "dot_config/exact_doom/packages.el" | sha256sum }}
+set -euo pipefail
+
+{{ template "lib-log.bash" . }}
+
+emacs_dir="$HOME/.config/emacs"
+doom_bin="$emacs_dir/bin/doom"
+
+if [[ ! -d "$emacs_dir" ]]; then
+    info "Cloning Doom Emacs..."
+    git clone --depth 1 https://github.com/doomemacs/core "$emacs_dir"
+fi
+
+if [[ -d "$emacs_dir/.local" ]]; then
+    info "Syncing Doom Emacs packages..."
+    "$doom_bin" sync
+else
+    info "Installing Doom Emacs (first run)..."
+    "$doom_bin" install --no-config --no-env -!
+fi
+
+ok "Doom Emacs ready."

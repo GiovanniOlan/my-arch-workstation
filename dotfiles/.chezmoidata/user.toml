@@ -3,4 +3,5 @@
 
 user_groups = [
   "docker",
+  "nordvpn",
 ]

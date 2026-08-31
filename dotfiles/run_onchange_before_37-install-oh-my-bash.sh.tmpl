@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+#
+# Installs Oh My Bash by running its upstream installer, which clones the
+# framework into ~/.oh-my-bash and writes ~/.bashrc from its template. Skipped
+# when already installed, since re-running the installer overwrites ~/.bashrc.
+set -euo pipefail
+
+{{ template "lib-log.bash" . }}
+
+if [[ -d "$HOME/.oh-my-bash" ]]; then
+    ok "Oh My Bash already installed."
+    exit 0
+fi
+
+info "Installing Oh My Bash..."
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/ohmybash/oh-my-bash/master/tools/install.sh)" "" --unattended
+
+ok "Oh My Bash installed."

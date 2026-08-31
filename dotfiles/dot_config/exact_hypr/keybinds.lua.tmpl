@@ -108,6 +108,6 @@ hl.bind("SUPER + S",         hl.dsp.exec_cmd("pkill wl-kbptr || wl-kbptr"))
 hl.bind("SUPER + SHIFT + S", hl.dsp.exec_cmd("pkill wl-kbptr || wl-kbptr -o 'general.modes=split,click'"))
 
 -- ── Transcription ────────────────────────────────────────────────────────────
-hl.bind(mainMod .. " + D", hl.dsp.exec_cmd("$HOME/exec-apps/Handy_0.8.3_amd64.AppImage --toggle-transcription"))
+hl.bind(mainMod .. " + D", hl.dsp.exec_cmd("handy --toggle-transcription"))
 
 hl.bind(mainMod .. "+ SHIFT + T", hl.dsp.exec_cmd("brave --app=https://monkeytype.com --class=brave-monkeytype"))
