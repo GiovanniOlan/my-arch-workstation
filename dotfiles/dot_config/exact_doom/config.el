@@ -76,3 +76,26 @@
 
 (setq org-roam-directory "~/workspaces/second-brain")
 (org-roam-db-autosync-mode)
+
+(use-package! xclip
+  :config
+  (setq xclip-program "wl-copy"
+        xclip-select-enable-clipboard t
+        xclip-mode t
+        xclip-method 'wl-copy))
+
+(after! org
+  (setq org-cite-global-bibliography '("~/workspaces/second-brain/references.bib")))
+
+(use-package! citar
+  :after org
+  :custom
+  (citar-bibliography '("~/workspaces/second-brain/references.bib"))
+  (org-cite-insert-processor 'citar)
+  (org-cite-follow-processor 'citar)
+  (org-cite-activate-processor 'citar))
+
+(use-package! citar-org-roam
+  :after (citar org-roam)
+  :config
+  (citar-org-roam-mode))

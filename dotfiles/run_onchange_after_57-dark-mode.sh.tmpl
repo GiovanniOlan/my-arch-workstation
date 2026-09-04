@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+#
+# Forces dark mode for GTK/GNOME apps (Nautilus, Evince, EOG, and the
+# GTK-aware parts of Firefox/Chromium/Brave/Chrome). Hardcoded on purpose:
+# there is no light/dark switcher here, just always dark.
+set -euo pipefail
+
+{{ template "lib-log.bash" . }}
+
+info "Setting the GTK color scheme to dark..."
+gsettings set org.gnome.desktop.interface color-scheme 'prefer-dark'
+gsettings set org.gnome.desktop.interface gtk-theme 'Adwaita-dark'
+
+ok "Dark mode set."
