@@ -126,6 +126,28 @@ hl.window_rule({
     max_size = "900 600",
 })
 
+hl.window_rule({
+  name     = "float-whatsapp",
+  match    = { class = "brave-web.whatsapp.com__-Default" },
+
+  float    = true,
+  center   = true,
+  size     = "(monitor_w*0.55) (monitor_h*0.66)",
+  min_size = "1095 560",
+  max_size = "1100 750",
+})
+
+hl.window_rule({
+  name     = "float-claude",
+  match    = { class = "brave-claude.ai__new-Default" },
+
+  float    = true,
+  center   = true,
+  size     = "(monitor_w*0.5) (monitor_h*0.62)",
+  min_size = "1095 560",
+  max_size = "1000 700",
+})
+
 -- window rule
 hl.window_rule({
   name     = "monkeytype-app",

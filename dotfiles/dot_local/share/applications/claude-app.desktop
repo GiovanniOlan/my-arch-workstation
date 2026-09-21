@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Claude
+GenericName=AI Chat
+Comment=Claude as an isolated one-off app window, opens straight into an incognito chat (pick Haiku manually)
+Exec=brave --app=https://claude.ai/new?incognito=
+Icon=claude
+Terminal=false
+Categories=Network;Utility;
+StartupWMClass=brave-claude.ai__new-Default

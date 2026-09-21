@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=WhatsApp
+GenericName=Messaging
+Comment=WhatsApp Web as an isolated, one-shot app window (own Brave profile)
+Exec=brave --app=https://web.whatsapp.com --user-data-dir={{ .chezmoi.homeDir }}/.local/share/brave-apps/whatsapp
+Icon=whatsapp
+Terminal=false
+Categories=Network;InstantMessaging;
+StartupWMClass=brave-web.whatsapp.com__-Default
